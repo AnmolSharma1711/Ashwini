@@ -45,20 +45,25 @@ def device_command(request, device_id):
     device.last_seen = timezone.now()
     device.save()
     
-    # Future: Check for pending measurement sessions
-    # pending_session = MeasurementSession.objects.filter(
-    #     device=device,
-    #     status='pending'
-    # ).first()
-    # 
-    # if pending_session:
-    #     return Response({
-    #         "command": "measure",
-    #         "patient_id": pending_session.patient.id,
-    #         "session_id": pending_session.id
-    #     })
+    # Check for pending measurement sessions
+    pending_session = MeasurementSession.objects.filter(
+        device=device,
+        status='pending'
+    ).first()
     
-    # For now, always return idle
+    if pending_session:
+        # Update session status to in_progress
+        pending_session.status = 'in_progress'
+        pending_session.save()
+        
+        return Response({
+            "command": "measure",
+            "patient_id": pending_session.patient.id,
+            "session_id": pending_session.id,
+            "patient_name": pending_session.patient.name
+        })
+    
+    # No pending measurement, return idle
     return Response({
         "command": "idle"
     })
@@ -132,3 +137,46 @@ def device_measurements_create(request, device_id):
         return Response(response_serializer.data, status=status.HTTP_201_CREATED)
     
     return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+@api_view(['POST'])
+def create_measurement_session(request):
+    """
+    Create a new measurement session for IoT device.
+    
+    POST /api/measurement-sessions/
+    Body: {
+        "patient": <patient_id>,
+        "device": <device_id>
+    }
+    """
+    patient_id = request.data.get('patient')
+    device_id = request.data.get('device')
+    
+    if not patient_id or not device_id:
+        return Response(
+            {"error": "patient and device are required"},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+    
+    patient = get_object_or_404(Patient, id=patient_id)
+    device = get_object_or_404(Device, id=device_id)
+    
+    # Create new measurement session with pending status
+    session = MeasurementSession.objects.create(
+        patient=patient,
+        device=device,
+        status='pending'
+    )
+    
+    # Update patient status to checking
+    patient.status = 'checking'
+    patient.save()
+    
+    return Response({
+        "id": session.id,
+        "patient": session.patient.id,
+        "device": session.device.id,
+        "status": session.status,
+        "message": f"Measurement session created. Device will receive measurement instructions."
+    }, status=status.HTTP_201_CREATED)
