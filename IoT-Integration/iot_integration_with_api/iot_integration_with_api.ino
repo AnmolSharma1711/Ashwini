@@ -2,14 +2,15 @@
 #include <Adafruit_GFX.h>
 #include <Adafruit_SSD1306.h>
 #include <WiFi.h>
+#include <WiFiManager.h>
 #include <HTTPClient.h>
 #include "secrets.h" //Changes this line to include secrets.h to keys.h
 
 // ==================== Globla variable confinguration CONFIGURATION ====================
 // =================== Fill these keys for device implementation ====================
-// WiFi Credentials
-const char* ssid = secret_ssid;
-const char* password = secret_password;
+// WiFi Credentials - Now managed by WiFiManager
+// const char* ssid = secret_ssid;  // No longer needed
+// const char* password = secret_password;  // No longer needed
 
 // Device Identification
 const char* deviceId = secret_deviceId;
@@ -203,37 +204,35 @@ void loop() {
 void connectWiFi() {
   displayStatus("Connecting WiFi...");
   
-  Serial.print("Connecting to: ");
-  Serial.println(ssid);
+  Serial.println("Starting WiFiManager...");
+  Serial.println("Connect to 'ESP32-Setup' AP to configure WiFi");
   
-  WiFi.begin(ssid, password);
+  WiFiManager wifiManager;
   
-  int attempts = 0;
-  while (WiFi.status() != WL_CONNECTED && attempts < 30) {
-    delay(500);
-    Serial.print(".");
-    attempts++;
-  }
+  // Set timeout for configuration portal (3 minutes)
+  wifiManager.setConfigPortalTimeout(180);
   
-  Serial.println();
-  
-  if (WiFi.status() == WL_CONNECTED) {
-    wifiConnected = true;
-    Serial.println("✓ WiFi Connected!");
-    Serial.print("  IP Address: ");
-    Serial.println(WiFi.localIP());
-    Serial.print("  Signal: ");
-    Serial.print(WiFi.RSSI());
-    Serial.println(" dBm");
-    
-    displayStatus("WiFi Connected!");
-    delay(1500);
-  } else {
-    wifiConnected = false;
-    Serial.println("❌ WiFi Connection FAILED!");
+  // Try to auto-connect to saved WiFi or start config portal
+  if (!wifiManager.autoConnect("ESP32-Setup")) {
+    Serial.println("❌ Failed to connect - timeout or user cancellation");
     displayStatus("WiFi Failed!");
-    delay(2000);
+    delay(3000);
+    ESP.restart();
   }
+  
+  // Successfully connected
+  wifiConnected = true;
+  Serial.println("✓ WiFi Connected!");
+  Serial.print("  Network Name (SSID): ");
+  Serial.println(WiFi.SSID());
+  Serial.print("  IP Address: ");
+  Serial.println(WiFi.localIP());
+  Serial.print("  Signal: ");
+  Serial.print(WiFi.RSSI());
+  Serial.println(" dBm");
+  
+  displayStatus("WiFi Connected!");
+  delay(1500);
 }
 
 // ==================== TEMPERATURE SENSOR ====================
