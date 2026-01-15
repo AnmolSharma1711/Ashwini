@@ -15,6 +15,11 @@ export const getPatients = (status = null) => {
   return api.get('/patients/', { params });
 };
 
+export const getPrioritizedPatients = (healthStatus = null) => {
+  const params = healthStatus ? { health_status: healthStatus } : {};
+  return api.get('/patients/prioritized/', { params });
+};
+
 export const getPatient = (id) => {
   return api.get(`/patients/${id}/`);
 };

@@ -59,6 +59,9 @@ def patient_measurements_list(request, patient_id):
                 source='manual'
             )
             
+            # Auto-assess patient health status after new measurement
+            patient.assess_health_status()
+            
             response_serializer = MeasurementSerializer(measurement)
             return Response(response_serializer.data, status=status.HTTP_201_CREATED)
         

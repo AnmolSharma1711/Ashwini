@@ -25,7 +25,10 @@ class PatientListSerializer(serializers.ModelSerializer):
     
     class Meta:
         model = Patient
-        fields = ['id', 'name', 'age', 'gender', 'phone', 'status', 'visit_time', 'reason']
+        fields = [
+            'id', 'name', 'age', 'gender', 'phone', 'status', 'visit_time', 
+            'reason', 'health_status', 'priority_score', 'last_assessment_time'
+        ]
 
 
 class PatientDetailSerializer(serializers.ModelSerializer):
@@ -47,7 +50,8 @@ class PatientDetailSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'name', 'age', 'gender', 'phone', 'address', 'reason',
             'visit_time', 'status', 'notes', 'next_visit_date',
-            'latest_measurement', 'prescription'
+            'latest_measurement', 'prescription', 
+            'health_status', 'priority_score', 'last_assessment_time'
         ]
     
     def get_latest_measurement(self, obj):

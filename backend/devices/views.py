@@ -126,6 +126,9 @@ def device_measurements_create(request, device_id):
             source='device'
         )
         
+        # Auto-assess patient health status after new measurement
+        patient.assess_health_status()
+        
         # Future: Update MeasurementSession status
         # session_id = request.data.get('session_id')
         # if session_id:
