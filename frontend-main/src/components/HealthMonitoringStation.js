@@ -15,6 +15,7 @@ const HealthMonitoringStation = () => {
 	const [loading, setLoading] = useState(false);
 	const [message, setMessage] = useState({ type: "", text: "" });
 	const [deviceMeasuring, setDeviceMeasuring] = useState(false);
+	// eslint-disable-next-line no-unused-vars
 	const [sessionId, setSessionId] = useState(null);
 
 	// Measurement form state
