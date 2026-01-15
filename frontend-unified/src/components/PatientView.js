@@ -17,12 +17,6 @@ const PatientView = ({ patientId, onUpdate }) => {
     quantity: 'Full',
   });
 
-  useEffect(() => {
-    if (patientId) {
-      fetchPatientDetails();
-    }
-  }, [patientId]);
-
   const fetchPatientDetails = async () => {
     setLoading(true);
     try {
@@ -38,6 +32,13 @@ const PatientView = ({ patientId, onUpdate }) => {
       setLoading(false);
     }
   };
+
+  useEffect(() => {
+    if (patientId) {
+      fetchPatientDetails();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [patientId]);
 
   const handleAddMedicine = () => {
     if (!newMedicine.name) {
