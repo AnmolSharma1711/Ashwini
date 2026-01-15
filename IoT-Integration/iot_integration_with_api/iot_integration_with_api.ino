@@ -13,13 +13,11 @@ const char* password = secret_password;
 
 // Device Identification
 const char* deviceId = secret_deviceId;
-cosnt char* ip = secret_ip;
-const char* port = secret_port;
+const char* serverUrl = secret_serverUrl;
 
-
-// Django Backend API Endpoints
-const char* apiMeasurementEndpoint = "http://" + ip +":" + port +"/api/devices/" +deviceId + "/measurements/";
-const char* apiCommnadEndpoint = "http://" + ip +":" + port +"/api/devices/" +deviceId + "/command/";
+// Django Backend API Endpoints - Constructed dynamically
+String apiMeasurementEndpoint;
+String apiCommandEndpoint;
 
 // IoT Measurement State
 bool measurementActive = false;
@@ -85,6 +83,15 @@ void setup() {
   Serial.println("║   ESP32 Health Monitor System v1.0    ║");
   Serial.println("║   Temperature + Heart Rate → Django   ║");
   Serial.println("╚════════════════════════════════════════╝\n");
+  
+  // Build API endpoint URLs
+  apiMeasurementEndpoint = String(serverUrl) + "/api/devices/" + String(deviceId) + "/measurements/";
+  apiCommandEndpoint = String(serverUrl) + "/api/devices/" + String(deviceId) + "/command/";
+  
+  Serial.print("📡 API Measurement: ");
+  Serial.println(apiMeasurementEndpoint);
+  Serial.print("📡 API Command: ");
+  Serial.println(apiCommandEndpoint);
   
   // Initialize I2C
   Wire.begin(21, 22);

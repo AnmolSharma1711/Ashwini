@@ -1,5 +1,5 @@
 #define secret_ssid "Your Wifi SSID"
 #define secret_password "Your Wifi Password"
 #define secret_deviceId "Your Device ID"
-#define secret_ip "Your Local Device or Deployment Server"
-#define secret_port "Your Port"
+// Use deployed Render backend
+#define secret_serverUrl "https://ashwini-backend.onrender.com"
