@@ -208,11 +208,14 @@ class AzureDocumentIntelligenceService:
         openai_key = os.environ.get('AZURE_OPENAI_API_KEY')
         openai_deployment = os.environ.get('AZURE_OPENAI_DEPLOYMENT_NAME', 'gpt-4o-mini')
         
+        logger.info(f"OpenAI Summary - Endpoint configured: {bool(openai_endpoint)}, Key configured: {bool(openai_key)}, Library available: {OPENAI_AVAILABLE}, Deployment: {openai_deployment}")
+        
         if not openai_endpoint or not openai_key or not OPENAI_AVAILABLE:
-            logger.info("Azure OpenAI not configured, using raw OCR text")
+            logger.warning(f"Azure OpenAI not configured - Endpoint: {bool(openai_endpoint)}, Key: {bool(openai_key)}, Available: {OPENAI_AVAILABLE}")
             return raw_ocr_text
         
         try:
+            logger.info(f"Calling Azure OpenAI for summary generation with deployment: {openai_deployment}")
             client = AzureOpenAI(
                 api_key=openai_key,
                 api_version="2024-02-15-preview",
@@ -239,11 +242,11 @@ Return a well-formatted, professional medical report summary."""
             )
             
             formatted_text = response.choices[0].message.content.strip()
-            logger.info("Generated readable summary using Azure OpenAI")
+            logger.info(f"✅ Successfully generated readable summary using Azure OpenAI (length: {len(formatted_text)} chars)")
             return formatted_text
             
         except Exception as e:
-            logger.error(f"Error generating readable summary with OpenAI: {str(e)}")
+            logger.error(f"❌ Error generating readable summary with OpenAI: {str(e)}", exc_info=True)
             return raw_ocr_text  # Fallback to raw OCR text
     
     def _extract_key_phrases(self, text):
@@ -270,11 +273,14 @@ Return a well-formatted, professional medical report summary."""
         openai_key = os.environ.get('AZURE_OPENAI_API_KEY')
         openai_deployment = os.environ.get('AZURE_OPENAI_DEPLOYMENT_NAME', 'gpt-4o-mini')
         
+        logger.info(f"OpenAI KeyPhrases - Endpoint configured: {bool(openai_endpoint)}, Key configured: {bool(openai_key)}, Library available: {OPENAI_AVAILABLE}")
+        
         if not openai_endpoint or not openai_key or not OPENAI_AVAILABLE:
-            logger.info("Azure OpenAI not configured, using simple extraction")
+            logger.warning(f"Azure OpenAI not configured for key phrases - Endpoint: {bool(openai_endpoint)}, Key: {bool(openai_key)}, Available: {OPENAI_AVAILABLE}")
             return None
         
         try:
+            logger.info(f"Calling Azure OpenAI for key phrase extraction with deployment: {openai_deployment}")
             client = AzureOpenAI(
                 api_key=openai_key,
                 api_version="2024-02-15-preview",
@@ -306,11 +312,13 @@ Return ONLY a JSON array of strings, like: ["Finding 1", "Finding 2", "Finding 3
             key_phrases = json.loads(result_text)
             
             if isinstance(key_phrases, list):
-                logger.info(f"Extracted {len(key_phrases)} key phrases using Azure OpenAI")
+                logger.info(f"✅ Extracted {len(key_phrases)} key phrases using Azure OpenAI")
                 return key_phrases[:10]  # Limit to 10
+            else:
+                logger.warning(f"OpenAI returned non-list response: {type(key_phrases)}")
             
         except Exception as e:
-            logger.error(f"Error using Azure OpenAI for key phrase extraction: {str(e)}")
+            logger.error(f"❌ Error using Azure OpenAI for key phrase extraction: {str(e)}", exc_info=True)
         
         return None
     
