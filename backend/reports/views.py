@@ -71,11 +71,11 @@ class ReportViewSet(viewsets.ModelViewSet):
             report.save()
             return
         
-        # Get the file path
-        file_path = report.report_image.path
+        # Get the file URL (works with both local storage and Cloudinary)
+        file_url = report.report_image.url
         
         # Analyze the document
-        result = service.analyze_document(file_path)
+        result = service.analyze_document(file_url)
         
         if result['success']:
             report.extracted_text = result['extracted_text']

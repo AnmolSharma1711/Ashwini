@@ -40,12 +40,12 @@ class AzureDocumentIntelligenceService:
         """Check if the service is properly configured"""
         return self.client is not None
     
-    def analyze_document(self, image_file_path):
+    def analyze_document(self, file_url):
         """
-        Analyze a document image using Azure Document Intelligence.
+        Analyze a document from URL using Azure Document Intelligence.
         
         Args:
-            image_file_path: Path to the image file
+            file_url: URL of the file (can be Cloudinary URL or local URL)
             
         Returns:
             dict: Analysis results containing:
@@ -57,15 +57,26 @@ class AzureDocumentIntelligenceService:
             raise Exception("Azure Document Intelligence service is not configured. Please set AZURE_DOCUMENT_INTELLIGENCE_ENDPOINT and AZURE_DOCUMENT_INTELLIGENCE_KEY environment variables.")
         
         try:
-            # Read the image file
-            with open(image_file_path, "rb") as f:
-                image_data = f.read()
+            # If it's a relative URL (local development), need to handle differently
+            # For production with Cloudinary, it will be an absolute HTTPS URL
+            import requests
+            from io import BytesIO
+            
+            if file_url.startswith('http://') or file_url.startswith('https://'):
+                # Remote URL (Cloudinary) - download and analyze
+                response = requests.get(file_url)
+                response.raise_for_status()
+                file_data = response.content
+            else:
+                # Local file path - read directly (development mode)
+                with open(file_url, "rb") as f:
+                    file_data = f.read()
             
             # Use the read model for general document analysis
             # This model extracts text, layout, and structure
             poller = self.client.begin_analyze_document(
                 "prebuilt-read",  # Using prebuilt read model for OCR
-                body=image_data,
+                body=file_data,
                 content_type="application/octet-stream"
             )
             
