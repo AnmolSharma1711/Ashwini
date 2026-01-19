@@ -7,6 +7,10 @@ Generated for Project Ashwini - IoT-ready health tracking system.
 from pathlib import Path
 import os
 import dj_database_url
+from dotenv import load_dotenv
+
+# Load environment variables from .env file
+load_dotenv()
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -44,6 +48,7 @@ INSTALLED_APPS = [
     'prescriptions',
     'measurements',
     'devices',
+    'reports',
 ]
 
 MIDDLEWARE = [
@@ -135,6 +140,10 @@ STATIC_ROOT = BASE_DIR / 'staticfiles'
 # Use WhiteNoise for static file serving in production
 STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
 
+# Media files (User uploads)
+MEDIA_URL = '/media/'
+MEDIA_ROOT = BASE_DIR / 'media'
+
 # Default primary key field type
 # https://docs.djangoproject.com/en/4.2/ref/settings/#default-auto-field
 
@@ -148,6 +157,8 @@ REST_FRAMEWORK = {
     ],
     'DEFAULT_PARSER_CLASSES': [
         'rest_framework.parsers.JSONParser',
+        'rest_framework.parsers.MultiPartParser',
+        'rest_framework.parsers.FormParser',
     ],
     # For future: Add authentication classes here
     # 'DEFAULT_AUTHENTICATION_CLASSES': [

@@ -6,7 +6,9 @@ import {
 	createMeasurement,
 	getLatestMeasurement,
 	createMeasurementSession,
+	uploadReport,
 } from "../api";
+import ReportAnalysis from "./ReportAnalysis";
 
 const HealthMonitoringStation = () => {
 	const [patients, setPatients] = useState([]);
@@ -17,6 +19,9 @@ const HealthMonitoringStation = () => {
 	const [deviceMeasuring, setDeviceMeasuring] = useState(false);
 	// eslint-disable-next-line no-unused-vars
 	const [sessionId, setSessionId] = useState(null);
+	const [uploadingReport, setUploadingReport] = useState(false);
+	const [selectedFile, setSelectedFile] = useState(null);
+	const [showReportAnalysis, setShowReportAnalysis] = useState(false);
 
 	// Measurement form state
 	const [measurementData, setMeasurementData] = useState({
@@ -229,6 +234,78 @@ const HealthMonitoringStation = () => {
 		}
 	};
 
+	const handleFileSelect = (e) => {
+		const file = e.target.files[0];
+		if (file) {
+			// Validate file type
+			const allowedTypes = [
+				"image/jpeg",
+				"image/jpg",
+				"image/png",
+				"application/pdf",
+			];
+			if (!allowedTypes.includes(file.type)) {
+				showMessage(
+					"error",
+					"Please select a valid image file (JPG, PNG) or PDF"
+				);
+				return;
+			}
+
+			// Validate file size (max 10MB)
+			if (file.size > 10 * 1024 * 1024) {
+				showMessage(
+					"error",
+					"File size must be less than 10MB"
+				);
+				return;
+			}
+
+			setSelectedFile(file);
+		}
+	};
+
+	const handleUploadReport = async () => {
+		if (!selectedPatient) {
+			showMessage("error", "Please select a patient first");
+			return;
+		}
+
+		if (!selectedFile) {
+			showMessage("error", "Please select a file to upload");
+			return;
+		}
+
+		setUploadingReport(true);
+		try {
+			const formData = new FormData();
+			formData.append("report_image", selectedFile);
+			formData.append("uploaded_by", "health_monitoring_station");
+
+			await uploadReport(selectedPatient.id, formData);
+
+			showMessage(
+				"success",
+				"Report uploaded successfully! Analysis in progress..."
+			);
+
+			// Reset file selection
+			setSelectedFile(null);
+			document.getElementById("reportFileInput").value = "";
+
+			// Show report analysis section
+			setShowReportAnalysis(true);
+		} catch (error) {
+			showMessage(
+				"error",
+				"Failed to upload report: " +
+					(error.response?.data?.detail || error.message)
+			);
+		} finally {
+			setUploadingReport(false);
+		}
+	};
+
 	return (
 		<div className="health-monitoring-station">
 			<h2 className="mb-4">Health Monitoring Station</h2>
@@ -247,6 +324,13 @@ const HealthMonitoringStation = () => {
 						className="btn-close"
 						onClick={() => setMessage({ type: "", text: "" })}
 					></button>
+				</div>
+			)}
+
+			{/* Report Analysis Section */}
+			{showReportAnalysis && selectedPatient && (
+				<div className="mb-4">
+					<ReportAnalysis patientId={selectedPatient.id} />
 				</div>
 			)}
 
@@ -557,6 +641,76 @@ const HealthMonitoringStation = () => {
 									</span>
 								)}
 							</p>
+						</div>
+					</div>
+
+					{/* Medical Report Upload */}
+					<div className="card mt-3">
+						<div className="card-header bg-warning">
+							<h5 className="mb-0">
+								<i className="bi bi-file-medical"></i> Upload
+								Medical Report
+							</h5>
+						</div>
+						<div className="card-body">
+							<p className="mb-3">
+								Upload lab reports, prescriptions, or medical
+								documents for AI-powered analysis.
+							</p>
+							<div className="mb-3">
+								<label className="form-label">
+									Select Report Image/PDF
+								</label>
+								<input
+									type="file"
+									id="reportFileInput"
+									className="form-control"
+									accept="image/jpeg,image/jpg,image/png,application/pdf"
+									onChange={handleFileSelect}
+									disabled={!selectedPatient || uploadingReport}
+								/>
+								{selectedFile && (
+									<small className="text-success">
+										<i className="bi bi-check-circle"></i>{" "}
+										Selected: {selectedFile.name}
+									</small>
+								)}
+							</div>
+							<button
+								className="btn btn-warning w-100"
+								onClick={handleUploadReport}
+								disabled={
+									!selectedPatient ||
+									!selectedFile ||
+									uploadingReport
+								}
+							>
+								<i className="bi bi-cloud-upload"></i>{" "}
+								{uploadingReport
+									? "Uploading & Analyzing..."
+									: "Upload & Analyze Report"}
+							</button>
+							<p className="text-muted mt-2 small">
+								Supported formats: JPG, PNG, PDF (Max 10MB)
+								<br />
+								<strong>Azure AI Document Intelligence</strong>{" "}
+								will extract text and key medical phrases
+							</p>
+							{selectedPatient && (
+								<button
+									className="btn btn-link btn-sm w-100 mt-2"
+									onClick={() =>
+										setShowReportAnalysis(
+											!showReportAnalysis
+										)
+									}
+								>
+									{showReportAnalysis
+										? "Hide"
+										: "View"}{" "}
+									Report Analysis
+								</button>
+							)}
 						</div>
 					</div>
 				</div>

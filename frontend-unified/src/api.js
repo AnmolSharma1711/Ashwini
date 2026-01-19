@@ -46,4 +46,17 @@ export const getAllMeasurements = (patientId) => {
   return api.get(`/patients/${patientId}/measurements/`);
 };
 
+// Report APIs
+export const getPatientReports = (patientId) => {
+  return api.get(`/patients/${patientId}/reports/`);
+};
+
+export const getLatestReport = (patientId) => {
+  return api.get(`/patients/${patientId}/reports/latest/`);
+};
+
+export const getReportAnalysis = (reportId) => {
+  return api.get(`/reports/${reportId}/analysis/`);
+};
+
 export default api;

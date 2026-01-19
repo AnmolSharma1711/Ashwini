@@ -1,10 +1,13 @@
 import React, { useState, useEffect } from 'react';
-import { getPatient, updatePatient, updatePrescription } from '../api';
+import { getPatient, updatePatient, updatePrescription, getPatientReports, getReportAnalysis } from '../api';
 
 const PatientView = ({ patientId, onUpdate }) => {
   const [patient, setPatient] = useState(null);
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState({ type: '', text: '' });
+  const [reports, setReports] = useState([]);
+  const [selectedReport, setSelectedReport] = useState(null);
+  const [showReports, setShowReports] = useState(false);
 
   // Form states
   const [notes, setNotes] = useState('');
@@ -36,9 +39,45 @@ const PatientView = ({ patientId, onUpdate }) => {
   useEffect(() => {
     if (patientId) {
       fetchPatientDetails();
+      fetchPatientReports();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [patientId]);
+
+  const fetchPatientReports = async () => {
+    try {
+      const response = await getPatientReports(patientId);
+      setReports(response.data);
+      if (response.data.length > 0) {
+        handleReportSelect(response.data[0].id);
+      }
+    } catch (error) {
+      // Reports are optional, don't show error if none exist
+      setReports([]);
+    }
+  };
+
+  const handleReportSelect = async (reportId) => {
+    try {
+      const response = await getReportAnalysis(reportId);
+      setSelectedReport(response.data);
+    } catch (error) {
+      showMessage('error', 'Failed to load report analysis');
+    }
+  };
+
+  const getStatusBadgeClass = (status) => {
+    switch (status) {
+      case 'completed':
+        return 'bg-success';
+      case 'processing':
+        return 'bg-info';
+      case 'failed':
+        return 'bg-danger';
+      default:
+        return 'bg-warning';
+    }
+  };
 
   const handleAddMedicine = () => {
     if (!newMedicine.name) {
@@ -380,6 +419,112 @@ const PatientView = ({ patientId, onUpdate }) => {
                 {loading ? 'Saving...' : 'Save All Changes to Prescription'}
               </button>
             </div>
+          </div>
+
+          {/* Medical Report Analysis */}
+          <div className="card mb-3">
+            <div className="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+              <h5 className="mb-0">
+                <i className="bi bi-file-medical"></i> Medical Report Analysis
+              </h5>
+              <button
+                className="btn btn-sm btn-light"
+                onClick={() => setShowReports(!showReports)}
+              >
+                {showReports ? 'Hide' : 'Show'} ({reports.length})
+              </button>
+            </div>
+            {showReports && (
+              <div className="card-body">
+                {reports.length === 0 ? (
+                  <div className="text-center text-muted py-3">
+                    <i className="bi bi-inbox" style={{ fontSize: '2rem' }}></i>
+                    <p className="mt-2 mb-0">No reports uploaded yet</p>
+                    <small>Upload reports from the Health Monitoring Station</small>
+                  </div>
+                ) : (
+                  <div>
+                    {/* Report Selection */}
+                    <div className="mb-3">
+                      <label className="form-label"><strong>Select Report:</strong></label>
+                      <select
+                        className="form-select"
+                        onChange={(e) => handleReportSelect(e.target.value)}
+                        value={selectedReport?.id || ''}
+                      >
+                        {reports.map((report) => (
+                          <option key={report.id} value={report.id}>
+                            Report #{report.id} - {new Date(report.uploaded_at).toLocaleDateString()} -{' '}
+                            <span className={getStatusBadgeClass(report.analysis_status)}>
+                              {report.analysis_status}
+                            </span>
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    {/* Report Details */}
+                    {selectedReport && (
+                      <div>
+                        {/* Status */}
+                        <div className="mb-3">
+                          <strong>Status: </strong>
+                          <span className={`badge ${getStatusBadgeClass(selectedReport.analysis_status)}`}>
+                            {selectedReport.analysis_status}
+                          </span>
+                          {selectedReport.confidence_score && (
+                            <span className="ms-2">
+                              <strong>Confidence: </strong>
+                              {(selectedReport.confidence_score * 100).toFixed(1)}%
+                            </span>
+                          )}
+                        </div>
+
+                        {/* Key Phrases */}
+                        {selectedReport.key_phrases_list && selectedReport.key_phrases_list.length > 0 && (
+                          <div className="mb-3">
+                            <h6 className="text-primary">
+                              <i className="bi bi-key"></i> Key Medical Phrases:
+                            </h6>
+                            <div className="bg-light p-2 rounded" style={{ maxHeight: '200px', overflowY: 'auto' }}>
+                              <ul className="mb-0 small">
+                                {selectedReport.key_phrases_list.map((phrase, index) => (
+                                  <li key={index} className="mb-1">
+                                    <span className="badge bg-info text-dark me-2">{index + 1}</span>
+                                    {phrase}
+                                  </li>
+                                ))}
+                              </ul>
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Extracted Text */}
+                        {selectedReport.extracted_text && (
+                          <div className="mb-3">
+                            <h6 className="text-primary">
+                              <i className="bi bi-file-text"></i> Extracted Text (OCR):
+                            </h6>
+                            <div className="bg-light p-2 rounded" style={{ maxHeight: '300px', overflowY: 'auto' }}>
+                              <pre className="mb-0 small" style={{ whiteSpace: 'pre-wrap', wordWrap: 'break-word' }}>
+                                {selectedReport.extracted_text}
+                              </pre>
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Doctor Notes on Report */}
+                        {selectedReport.doctor_notes && (
+                          <div className="alert alert-info small mb-0">
+                            <strong>Doctor's Notes:</strong> {selectedReport.doctor_notes}
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
           </div>
 
           {/* Complete Consultation */}
