@@ -35,6 +35,8 @@ class ReportCloudinaryStorage(MediaCloudinaryStorage):
             'folder': self._get_folder(name),
             'resource_type': resource_type,
             'overwrite': False,
+            'type': 'upload',  # Make files publicly accessible
+            'access_mode': 'public',  # Ensure public access for raw files
         }
         
         # Add any additional options from settings
