@@ -1,8 +1,17 @@
 import os
 import logging
+import json
 from azure.core.credentials import AzureKeyCredential
 from azure.ai.documentintelligence import DocumentIntelligenceClient
 from azure.ai.documentintelligence.models import AnalyzeDocumentRequest, AnalyzeResult
+
+# Import OpenAI at module level to avoid timeout during request
+try:
+    from openai import AzureOpenAI
+    OPENAI_AVAILABLE = True
+except ImportError:
+    OPENAI_AVAILABLE = False
+    AzureOpenAI = None
 
 logger = logging.getLogger(__name__)
 
@@ -199,13 +208,11 @@ class AzureDocumentIntelligenceService:
         openai_key = os.environ.get('AZURE_OPENAI_API_KEY')
         openai_deployment = os.environ.get('AZURE_OPENAI_DEPLOYMENT_NAME', 'gpt-4o-mini')
         
-        if not openai_endpoint or not openai_key:
+        if not openai_endpoint or not openai_key or not OPENAI_AVAILABLE:
             logger.info("Azure OpenAI not configured, using raw OCR text")
             return raw_ocr_text
         
         try:
-            from openai import AzureOpenAI
-            
             client = AzureOpenAI(
                 api_key=openai_key,
                 api_version="2024-02-15-preview",
@@ -263,13 +270,11 @@ Return a well-formatted, professional medical report summary."""
         openai_key = os.environ.get('AZURE_OPENAI_API_KEY')
         openai_deployment = os.environ.get('AZURE_OPENAI_DEPLOYMENT_NAME', 'gpt-4o-mini')
         
-        if not openai_endpoint or not openai_key:
+        if not openai_endpoint or not openai_key or not OPENAI_AVAILABLE:
             logger.info("Azure OpenAI not configured, using simple extraction")
             return None
         
         try:
-            from openai import AzureOpenAI
-            
             client = AzureOpenAI(
                 api_key=openai_key,
                 api_version="2024-02-15-preview",
@@ -298,7 +303,6 @@ Return ONLY a JSON array of strings, like: ["Finding 1", "Finding 2", "Finding 3
             result_text = response.choices[0].message.content.strip()
             
             # Parse JSON response
-            import json
             key_phrases = json.loads(result_text)
             
             if isinstance(key_phrases, list):
