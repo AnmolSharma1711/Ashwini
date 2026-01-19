@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 import { getPatient, updatePatient, updatePrescription, getPatientReports, getReportAnalysis } from '../api';
 
 const PatientView = ({ patientId, onUpdate }) => {
@@ -508,6 +509,7 @@ const PatientView = ({ patientId, onUpdate }) => {
                             </h6>
                             <div className="bg-white p-3 rounded border" style={{ maxHeight: '500px', overflowY: 'auto' }}>
                               <ReactMarkdown
+                                remarkPlugins={[remarkGfm]}
                                 className="markdown-content"
                                 components={{
                                   h1: ({children}) => <h4 className="text-primary mt-3 mb-2">{children}</h4>,

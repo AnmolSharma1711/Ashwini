@@ -9,7 +9,8 @@
     "react-scripts": "4.0.3",
     "axios": "^1.6.0",
     "bootstrap": "^5.3.0",
-    "react-markdown": "^8.0.7"
+    "react-markdown": "^8.0.7",
+    "remark-gfm": "^3.0.1"
   },
   "scripts": {
     "start": "set NODE_OPTIONS=--openssl-legacy-provider && set SKIP_PREFLIGHT_CHECK=true && set GENERATE_SOURCEMAP=false && set PORT=4000 && react-scripts start",

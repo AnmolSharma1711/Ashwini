@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 import { getPatientReports, getReportAnalysis } from "../api";
 
 const ReportAnalysis = ({ patientId }) => {
@@ -246,6 +247,7 @@ const ReportAnalysis = ({ patientId }) => {
 												>
 													<div className="card-body">
 														<ReactMarkdown
+															remarkPlugins={[remarkGfm]}
 															className="markdown-content"
 															components={{
 																h1: ({children}) => <h4 className="text-primary mt-3 mb-2">{children}</h4>,
