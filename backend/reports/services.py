@@ -171,12 +171,78 @@ class AzureDocumentIntelligenceService:
     
     def _extract_key_phrases(self, text):
         """
-        Extract key medical phrases from text.
+        Extract key medical phrases from text using Azure OpenAI.
+        Falls back to keyword matching if OpenAI is not configured.
+        """
+        if not text:
+            return []
         
-        This is a simple implementation. For production, consider using:
-        - Azure Text Analytics for more sophisticated key phrase extraction
-        - Custom medical terminology dictionaries
-        - ML-based medical entity recognition
+        # Try Azure OpenAI first for intelligent extraction
+        openai_phrases = self._extract_key_phrases_with_openai(text)
+        if openai_phrases:
+            return openai_phrases
+        
+        # Fallback to simple keyword matching
+        return self._extract_key_phrases_simple(text)
+    
+    def _extract_key_phrases_with_openai(self, text):
+        """
+        Use Azure OpenAI to extract and format medical key phrases intelligently.
+        """
+        openai_endpoint = os.environ.get('AZURE_OPENAI_ENDPOINT')
+        openai_key = os.environ.get('AZURE_OPENAI_API_KEY')
+        openai_deployment = os.environ.get('AZURE_OPENAI_DEPLOYMENT_NAME', 'gpt-4')
+        
+        if not openai_endpoint or not openai_key:
+            logger.info("Azure OpenAI not configured, using simple extraction")
+            return None
+        
+        try:
+            from openai import AzureOpenAI
+            
+            client = AzureOpenAI(
+                api_key=openai_key,
+                api_version="2024-02-15-preview",
+                azure_endpoint=openai_endpoint
+            )
+            
+            prompt = f"""Analyze this medical report text and extract 5-10 key medical findings in clear, understandable format.
+Format each finding as a short phrase (3-7 words).
+Focus on: diagnoses, test results, measurements, conditions, medications, and recommendations.
+
+Medical Report Text:
+{text[:2000]}
+
+Return ONLY a JSON array of strings, like: ["Finding 1", "Finding 2", "Finding 3"]"""
+            
+            response = client.chat.completions.create(
+                model=openai_deployment,
+                messages=[
+                    {"role": "system", "content": "You are a medical assistant that extracts key findings from medical reports."},
+                    {"role": "user", "content": prompt}
+                ],
+                temperature=0.3,
+                max_tokens=500
+            )
+            
+            result_text = response.choices[0].message.content.strip()
+            
+            # Parse JSON response
+            import json
+            key_phrases = json.loads(result_text)
+            
+            if isinstance(key_phrases, list):
+                logger.info(f"Extracted {len(key_phrases)} key phrases using Azure OpenAI")
+                return key_phrases[:10]  # Limit to 10
+            
+        except Exception as e:
+            logger.error(f"Error using Azure OpenAI for key phrase extraction: {str(e)}")
+        
+        return None
+    
+    def _extract_key_phrases_simple(self, text):
+        """
+        Simple keyword-based extraction as fallback.
         """
         if not text:
             return []
