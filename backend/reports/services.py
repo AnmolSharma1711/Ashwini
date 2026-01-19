@@ -140,20 +140,22 @@ class AzureDocumentIntelligenceService:
             result = poller.result()
             
             # Extract text content
-            extracted_text = ""
+            raw_ocr_text = ""
             if result.content:
-                extracted_text = result.content
+                raw_ocr_text = result.content
             
-            # Extract key phrases using simple heuristics
-            # In production, you might want to use Azure Text Analytics for more sophisticated key phrase extraction
-            key_phrases = self._extract_key_phrases(extracted_text)
+            # Generate readable summary using OpenAI (or use raw OCR as fallback)
+            extracted_text = self._generate_readable_summary(raw_ocr_text)
+            
+            # Extract key phrases using OpenAI
+            key_phrases = self._extract_key_phrases(raw_ocr_text)
             
             # Calculate average confidence score
             confidence_score = self._calculate_confidence(result)
             
             return {
                 'success': True,
-                'extracted_text': extracted_text,
+                'extracted_text': extracted_text,  # Now contains OpenAI-formatted summary
                 'key_phrases': key_phrases,
                 'confidence_score': confidence_score,
                 'page_count': len(result.pages) if result.pages else 0
@@ -168,6 +170,74 @@ class AzureDocumentIntelligenceService:
                 'key_phrases': [],
                 'confidence_score': None
             }
+    
+    def _extract_key_phrases(self, text):
+        """
+        Extract key medical phrases from text using Azure OpenAI.
+        Falls back to keyword matching if OpenAI is not configured.
+        """
+        if not text:
+            return []
+        
+        # Try Azure OpenAI first for intelligent extraction
+        openai_phrases = self._extract_key_phrases_with_openai(text)
+        if openai_phrases:
+            return openai_phrases
+        
+        # Fallback to simple keyword matching
+        return self._extract_key_phrases_simple(text)
+    
+    def _generate_readable_summary(self, raw_ocr_text):
+        """
+        Generate a clean, readable summary of the medical report using Azure OpenAI.
+        Falls back to raw OCR text if OpenAI is not configured.
+        """
+        if not raw_ocr_text:
+            return ""
+        
+        openai_endpoint = os.environ.get('AZURE_OPENAI_ENDPOINT')
+        openai_key = os.environ.get('AZURE_OPENAI_API_KEY')
+        openai_deployment = os.environ.get('AZURE_OPENAI_DEPLOYMENT_NAME', 'gpt-4o-mini')
+        
+        if not openai_endpoint or not openai_key:
+            logger.info("Azure OpenAI not configured, using raw OCR text")
+            return raw_ocr_text
+        
+        try:
+            from openai import AzureOpenAI
+            
+            client = AzureOpenAI(
+                api_key=openai_key,
+                api_version="2024-02-15-preview",
+                azure_endpoint=openai_endpoint
+            )
+            
+            prompt = f"""Clean up and organize this medical report text into a clear, readable format.
+Structure the information logically with proper headings and formatting.
+Correct any OCR errors and make the text easy to understand for healthcare professionals.
+
+Raw OCR Text:
+{raw_ocr_text[:3000]}
+
+Return a well-formatted, professional medical report summary."""
+            
+            response = client.chat.completions.create(
+                model=openai_deployment,
+                messages=[
+                    {"role": "system", "content": "You are a medical document assistant that formats and cleans medical report text for healthcare professionals."},
+                    {"role": "user", "content": prompt}
+                ],
+                temperature=0.3,
+                max_tokens=1500
+            )
+            
+            formatted_text = response.choices[0].message.content.strip()
+            logger.info("Generated readable summary using Azure OpenAI")
+            return formatted_text
+            
+        except Exception as e:
+            logger.error(f"Error generating readable summary with OpenAI: {str(e)}")
+            return raw_ocr_text  # Fallback to raw OCR text
     
     def _extract_key_phrases(self, text):
         """
