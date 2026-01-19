@@ -16,13 +16,24 @@ class ReportCloudinaryStorage(MediaCloudinaryStorage):
     
     def _upload(self, name, content):
         """
-        Override upload to use resource_type='auto' for automatic detection.
-        This allows PDFs and other document types in addition to images.
+        Override upload to detect file type and use appropriate resource_type.
+        Images use 'image', PDFs and other documents use 'raw'.
         """
-        # Build upload options with resource_type='auto'
+        # Detect file type from extension
+        import os
+        ext = os.path.splitext(name)[1].lower()
+        
+        # PDFs and other documents need resource_type='raw'
+        # Images can use resource_type='image' (default)
+        if ext == '.pdf':
+            resource_type = 'raw'
+        else:
+            resource_type = 'image'
+        
+        # Build upload options
         options = {
             'folder': self._get_folder(name),
-            'resource_type': 'auto',  # Auto-detect: image or raw (for PDFs)
+            'resource_type': resource_type,
             'overwrite': False,
         }
         
