@@ -130,11 +130,13 @@ def patient_reports_list(request, patient_id):
     elif request.method == 'POST':
         # Create report for this patient
         try:
-            data = request.data.copy()
-            data['patient'] = patient.id
-            
-            if 'uploaded_by' not in data:
-                data['uploaded_by'] = 'system'
+            # Don't use .copy() with file uploads - causes pickle error in Python 3.13
+            # Instead, work directly with request.data
+            data = {
+                'patient': patient.id,
+                'report_image': request.data.get('report_image'),
+                'uploaded_by': request.data.get('uploaded_by', 'system')
+            }
             
             logger.info(f"Attempting to upload report for patient {patient_id}")
             logger.info(f"File storage backend: {__import__('django.conf', fromlist=['settings']).settings.DEFAULT_FILE_STORAGE if hasattr(__import__('django.conf', fromlist=['settings']).settings, 'DEFAULT_FILE_STORAGE') else 'Not set'}")
