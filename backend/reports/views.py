@@ -169,7 +169,15 @@ def patient_reports_list(request, patient_id):
             # This avoids URL access issues with Cloudinary
             report_image.seek(0)
             file_data = report_image.read()
+            file_size_mb = len(file_data) / (1024 * 1024)
             report_image.seek(0)  # Reset for saving
+            
+            # Azure Document Intelligence has a 4MB limit for direct uploads
+            # For larger files, we'll skip analysis but still save the report
+            AZURE_MAX_SIZE_MB = 4
+            can_analyze = file_size_mb <= AZURE_MAX_SIZE_MB
+            if not can_analyze:
+                logger.warning(f"File too large for Azure analysis: {file_size_mb:.2f}MB (max {AZURE_MAX_SIZE_MB}MB)")
             
             serializer = ReportCreateSerializer(data=data)
             if serializer.is_valid():
@@ -178,33 +186,40 @@ def patient_reports_list(request, patient_id):
                 logger.info(f"Report saved successfully with ID: {report.id}")
                 
                 # Trigger analysis using the file data we already read
-                try:
-                    service = get_document_intelligence_service()
-                    if service.is_configured():
-                        report.analysis_status = 'processing'
-                        report.save()
-                        
-                        # Analyze from bytes directly - no Cloudinary URL needed!
-                        result = service.analyze_document_from_bytes(file_data)
-                        
-                        if result['success']:
-                            report.extracted_text = result['extracted_text']
-                            report.key_phrases = result['key_phrases']
-                            report.confidence_score = result['confidence_score']
-                            report.analysis_status = 'completed'
-                            report.error_message = None
+                # Only if file is small enough for Azure (4MB limit)
+                if can_analyze:
+                    try:
+                        service = get_document_intelligence_service()
+                        if service.is_configured():
+                            report.analysis_status = 'processing'
+                            report.save()
+                            
+                            # Analyze from bytes directly - no Cloudinary URL needed!
+                            result = service.analyze_document_from_bytes(file_data)
+                            
+                            if result['success']:
+                                report.extracted_text = result['extracted_text']
+                                report.key_phrases = result['key_phrases']
+                                report.confidence_score = result['confidence_score']
+                                report.analysis_status = 'completed'
+                                report.error_message = None
+                            else:
+                                report.analysis_status = 'failed'
+                                report.error_message = result.get('error', 'Unknown error')
+                            report.save()
                         else:
                             report.analysis_status = 'failed'
-                            report.error_message = result.get('error', 'Unknown error')
-                        report.save()
-                    else:
+                            report.error_message = "Azure Document Intelligence is not configured"
+                            report.save()
+                    except Exception as e:
+                        logger.error(f"Error analyzing report {report.id}: {str(e)}")
                         report.analysis_status = 'failed'
-                        report.error_message = "Azure Document Intelligence is not configured"
+                        report.error_message = str(e)
                         report.save()
-                except Exception as e:
-                    logger.error(f"Error analyzing report {report.id}: {str(e)}")
+                else:
+                    # File too large for Azure - mark as failed with helpful message
                     report.analysis_status = 'failed'
-                    report.error_message = str(e)
+                    report.error_message = f"File too large for analysis ({file_size_mb:.1f}MB). Maximum size is {AZURE_MAX_SIZE_MB}MB. Please upload a smaller file or compress the PDF."
                     report.save()
                 
                 report.refresh_from_db()
