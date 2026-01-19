@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import ReactMarkdown from "react-markdown";
 import { getPatientReports, getReportAnalysis } from "../api";
 
 const ReportAnalysis = ({ patientId }) => {
@@ -233,31 +234,35 @@ const ReportAnalysis = ({ patientId }) => {
 										{selectedReport.extracted_text && (
 											<div className="mb-4">
 												<h6 className="text-primary">
-													<i className="bi bi-file-text"></i>{" "}
-													Extracted Text (OCR)
+													<i className="bi bi-file-medical"></i>{" "}
+													Medical Report Summary
 												</h6>
 												<div
 													className="card"
 													style={{
-														maxHeight: "400px",
+														maxHeight: "500px",
 														overflowY: "auto",
 													}}
 												>
 													<div className="card-body">
-														<pre
-															style={{
-																whiteSpace:
-																	"pre-wrap",
-																wordWrap:
-																	"break-word",
-																fontSize:
-																	"0.9rem",
+														<ReactMarkdown
+															className="markdown-content"
+															components={{
+																h1: ({node, ...props}) => <h4 className="text-primary mt-3 mb-2" {...props} />,
+																h2: ({node, ...props}) => <h5 className="text-secondary mt-3 mb-2" {...props} />,
+																h3: ({node, ...props}) => <h6 className="text-dark mt-2 mb-1" {...props} />,
+																p: ({node, ...props}) => <p className="mb-2" {...props} />,
+																ul: ({node, ...props}) => <ul className="mb-2" {...props} />,
+																li: ({node, ...props}) => <li className="mb-1" {...props} />,
+																strong: ({node, ...props}) => <strong className="text-dark" {...props} />,
+																hr: ({node, ...props}) => <hr className="my-3" {...props} />,
+																table: ({node, ...props}) => <table className="table table-sm table-bordered" {...props} />
 															}}
 														>
 															{
 																selectedReport.extracted_text
 															}
-														</pre>
+														</ReactMarkdown>
 													</div>
 												</div>
 											</div>
