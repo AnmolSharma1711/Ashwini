@@ -2,6 +2,7 @@
 Custom Cloudinary storage for reports that handles both images and PDFs.
 """
 from cloudinary_storage.storage import MediaCloudinaryStorage
+import cloudinary.uploader
 
 
 class ReportCloudinaryStorage(MediaCloudinaryStorage):
@@ -18,9 +19,21 @@ class ReportCloudinaryStorage(MediaCloudinaryStorage):
         Override upload to use resource_type='auto' for automatic detection.
         This allows PDFs and other document types in addition to images.
         """
-        options = self._get_upload_options(name)
-        # Force resource_type to 'auto' for automatic detection
-        options['resource_type'] = 'auto'
+        # Build upload options with resource_type='auto'
+        options = {
+            'folder': self._get_folder(name),
+            'resource_type': 'auto',  # Auto-detect: image or raw (for PDFs)
+            'overwrite': False,
+        }
         
-        import cloudinary.uploader
+        # Add any additional options from settings
+        if hasattr(self, 'CLOUDINARY_STORAGE'):
+            options.update(self.CLOUDINARY_STORAGE.get('OPTIONS', {}))
+        
         return cloudinary.uploader.upload(content, **options)
+    
+    def _get_folder(self, name):
+        """Extract folder path from the upload name."""
+        import os
+        folder = os.path.dirname(name)
+        return folder if folder else None
