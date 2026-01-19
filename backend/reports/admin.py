@@ -2,7 +2,6 @@ from django.contrib import admin
 from .models import Report
 
 
-@admin.ModelAdmin
 class ReportAdmin(admin.ModelAdmin):
     list_display = ['id', 'patient', 'uploaded_at', 'analysis_status', 'confidence_score']
     list_filter = ['analysis_status', 'uploaded_at']
