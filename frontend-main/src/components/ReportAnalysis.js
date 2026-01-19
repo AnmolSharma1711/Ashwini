@@ -248,15 +248,15 @@ const ReportAnalysis = ({ patientId }) => {
 														<ReactMarkdown
 															className="markdown-content"
 															components={{
-																h1: ({node, ...props}) => <h4 className="text-primary mt-3 mb-2" {...props} />,
-																h2: ({node, ...props}) => <h5 className="text-secondary mt-3 mb-2" {...props} />,
-																h3: ({node, ...props}) => <h6 className="text-dark mt-2 mb-1" {...props} />,
-																p: ({node, ...props}) => <p className="mb-2" {...props} />,
-																ul: ({node, ...props}) => <ul className="mb-2" {...props} />,
-																li: ({node, ...props}) => <li className="mb-1" {...props} />,
-																strong: ({node, ...props}) => <strong className="text-dark" {...props} />,
-																hr: ({node, ...props}) => <hr className="my-3" {...props} />,
-																table: ({node, ...props}) => <table className="table table-sm table-bordered" {...props} />
+																h1: (props) => <h4 className="text-primary mt-3 mb-2" {...props} />,
+																h2: (props) => <h5 className="text-secondary mt-3 mb-2" {...props} />,
+																h3: (props) => <h6 className="text-dark mt-2 mb-1" {...props} />,
+																p: (props) => <p className="mb-2" {...props} />,
+																ul: (props) => <ul className="mb-2" {...props} />,
+																li: (props) => <li className="mb-1" {...props} />,
+																strong: (props) => <strong className="text-dark" {...props} />,
+																hr: (props) => <hr className="my-3" {...props} />,
+																table: (props) => <table className="table table-sm table-bordered" {...props} />
 															}}
 														>
 															{
