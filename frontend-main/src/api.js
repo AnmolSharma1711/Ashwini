@@ -61,4 +61,33 @@ export const createMeasurementSession = (patientId, deviceId) => {
 	});
 };
 
+// Report APIs
+export const uploadReport = (patientId, formData) => {
+	return axios.post(
+		`${API_URL}/api/patients/${patientId}/reports/`,
+		formData,
+		{
+			headers: {
+				"Content-Type": "multipart/form-data",
+			},
+		}
+	);
+};
+
+export const getPatientReports = (patientId) => {
+	return api.get(`/patients/${patientId}/reports/`);
+};
+
+export const getLatestReport = (patientId) => {
+	return api.get(`/patients/${patientId}/reports/latest/`);
+};
+
+export const getReportAnalysis = (reportId) => {
+	return api.get(`/reports/${reportId}/analysis/`);
+};
+
+export const reanalyzeReport = (reportId) => {
+	return api.post(`/reports/${reportId}/reanalyze/`);
+};
+
 export default api;
