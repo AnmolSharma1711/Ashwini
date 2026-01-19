@@ -191,7 +191,7 @@ class AzureDocumentIntelligenceService:
         """
         openai_endpoint = os.environ.get('AZURE_OPENAI_ENDPOINT')
         openai_key = os.environ.get('AZURE_OPENAI_API_KEY')
-        openai_deployment = os.environ.get('AZURE_OPENAI_DEPLOYMENT_NAME', 'gpt-4')
+        openai_deployment = os.environ.get('AZURE_OPENAI_DEPLOYMENT_NAME', 'gpt-4o-mini')
         
         if not openai_endpoint or not openai_key:
             logger.info("Azure OpenAI not configured, using simple extraction")
