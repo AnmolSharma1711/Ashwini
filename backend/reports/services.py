@@ -40,6 +40,62 @@ class AzureDocumentIntelligenceService:
         """Check if the service is properly configured"""
         return self.client is not None
     
+    def analyze_document_from_bytes(self, file_data):
+        """
+        Analyze a document directly from bytes data.
+        
+        Args:
+            file_data: Raw bytes of the file
+            
+        Returns:
+            dict: Analysis results containing:
+                - extracted_text: Full text extracted from the document
+                - key_phrases: List of important phrases
+                - confidence_score: Overall confidence of the analysis
+        """
+        if not self.is_configured():
+            raise Exception("Azure Document Intelligence service is not configured. Please set AZURE_DOCUMENT_INTELLIGENCE_ENDPOINT and AZURE_DOCUMENT_INTELLIGENCE_KEY environment variables.")
+        
+        try:
+            # Use the read model for general document analysis
+            poller = self.client.begin_analyze_document(
+                "prebuilt-read",  # Using prebuilt read model for OCR
+                body=file_data,
+                content_type="application/octet-stream"
+            )
+            
+            # Wait for the analysis to complete
+            result = poller.result()
+            
+            # Extract text content
+            extracted_text = ""
+            if result.content:
+                extracted_text = result.content
+            
+            # Extract key phrases
+            key_phrases = self._extract_key_phrases(extracted_text)
+            
+            # Calculate average confidence score
+            confidence_score = self._calculate_confidence(result)
+            
+            return {
+                'success': True,
+                'extracted_text': extracted_text,
+                'key_phrases': key_phrases,
+                'confidence_score': confidence_score,
+                'page_count': len(result.pages) if result.pages else 0
+            }
+            
+        except Exception as e:
+            logger.error(f"Error analyzing document from bytes: {str(e)}")
+            return {
+                'success': False,
+                'error': str(e),
+                'extracted_text': None,
+                'key_phrases': [],
+                'confidence_score': None
+            }
+    
     def analyze_document(self, file_url):
         """
         Analyze a document from URL using Azure Document Intelligence.

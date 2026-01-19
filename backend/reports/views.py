@@ -165,16 +165,42 @@ def patient_reports_list(request, patient_id):
                 'uploaded_by': uploaded_by
             }
             
+            # Read file data for Azure analysis BEFORE saving to Cloudinary
+            # This avoids URL access issues with Cloudinary
+            report_image.seek(0)
+            file_data = report_image.read()
+            report_image.seek(0)  # Reset for saving
+            
             serializer = ReportCreateSerializer(data=data)
             if serializer.is_valid():
                 logger.info("Serializer valid, attempting to save...")
                 report = serializer.save(analysis_status='pending')
                 logger.info(f"Report saved successfully with ID: {report.id}")
                 
-                # Trigger analysis
+                # Trigger analysis using the file data we already read
                 try:
-                    viewset = ReportViewSet()
-                    viewset._analyze_report(report)
+                    service = get_document_intelligence_service()
+                    if service.is_configured():
+                        report.analysis_status = 'processing'
+                        report.save()
+                        
+                        # Analyze from bytes directly - no Cloudinary URL needed!
+                        result = service.analyze_document_from_bytes(file_data)
+                        
+                        if result['success']:
+                            report.extracted_text = result['extracted_text']
+                            report.key_phrases = result['key_phrases']
+                            report.confidence_score = result['confidence_score']
+                            report.analysis_status = 'completed'
+                            report.error_message = None
+                        else:
+                            report.analysis_status = 'failed'
+                            report.error_message = result.get('error', 'Unknown error')
+                        report.save()
+                    else:
+                        report.analysis_status = 'failed'
+                        report.error_message = "Azure Document Intelligence is not configured"
+                        report.save()
                 except Exception as e:
                     logger.error(f"Error analyzing report {report.id}: {str(e)}")
                     report.analysis_status = 'failed'
