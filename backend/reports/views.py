@@ -129,31 +129,45 @@ def patient_reports_list(request, patient_id):
     
     elif request.method == 'POST':
         # Create report for this patient
-        data = request.data.copy()
-        data['patient'] = patient.id
-        
-        if 'uploaded_by' not in data:
-            data['uploaded_by'] = 'system'
-        
-        serializer = ReportCreateSerializer(data=data)
-        if serializer.is_valid():
-            report = serializer.save(analysis_status='pending')
+        try:
+            data = request.data.copy()
+            data['patient'] = patient.id
             
-            # Trigger analysis
-            try:
-                viewset = ReportViewSet()
-                viewset._analyze_report(report)
-            except Exception as e:
-                logger.error(f"Error analyzing report {report.id}: {str(e)}")
-                report.analysis_status = 'failed'
-                report.error_message = str(e)
-                report.save()
+            if 'uploaded_by' not in data:
+                data['uploaded_by'] = 'system'
             
-            report.refresh_from_db()
-            output_serializer = ReportSerializer(report)
-            return Response(output_serializer.data, status=status.HTTP_201_CREATED)
-        
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+            logger.info(f"Attempting to upload report for patient {patient_id}")
+            logger.info(f"File storage backend: {__import__('django.conf', fromlist=['settings']).settings.DEFAULT_FILE_STORAGE if hasattr(__import__('django.conf', fromlist=['settings']).settings, 'DEFAULT_FILE_STORAGE') else 'Not set'}")
+            
+            serializer = ReportCreateSerializer(data=data)
+            if serializer.is_valid():
+                logger.info("Serializer valid, attempting to save...")
+                report = serializer.save(analysis_status='pending')
+                logger.info(f"Report saved successfully with ID: {report.id}")
+                
+                # Trigger analysis
+                try:
+                    viewset = ReportViewSet()
+                    viewset._analyze_report(report)
+                except Exception as e:
+                    logger.error(f"Error analyzing report {report.id}: {str(e)}")
+                    report.analysis_status = 'failed'
+                    report.error_message = str(e)
+                    report.save()
+                
+                report.refresh_from_db()
+                output_serializer = ReportSerializer(report)
+                return Response(output_serializer.data, status=status.HTTP_201_CREATED)
+            
+            logger.error(f"Serializer validation failed: {serializer.errors}")
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+            
+        except Exception as e:
+            logger.error(f"Error uploading report: {str(e)}", exc_info=True)
+            return Response(
+                {'error': f'Failed to upload report: {str(e)}'},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
 
 
 @api_view(['GET'])
