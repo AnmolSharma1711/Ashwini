@@ -31,6 +31,28 @@ class ReportCreateSerializer(serializers.ModelSerializer):
     class Meta:
         model = Report
         fields = ['patient', 'report_image', 'uploaded_by']
+    
+    def validate_report_image(self, value):
+        """Validate that the uploaded file is an image or PDF"""
+        # Get file extension
+        ext = value.name.lower().split('.')[-1] if '.' in value.name else ''
+        
+        # Allowed extensions
+        allowed_extensions = ['jpg', 'jpeg', 'png', 'pdf']
+        
+        if ext not in allowed_extensions:
+            raise serializers.ValidationError(
+                f"Unsupported file type '.{ext}'. Allowed types: {', '.join(allowed_extensions)}"
+            )
+        
+        # Check file size (max 10MB)
+        max_size = 10 * 1024 * 1024  # 10MB in bytes
+        if value.size > max_size:
+            raise serializers.ValidationError(
+                f"File size too large. Maximum allowed: 10MB. Your file: {value.size / (1024*1024):.2f}MB"
+            )
+        
+        return value
 
 
 class ReportAnalysisSerializer(serializers.ModelSerializer):

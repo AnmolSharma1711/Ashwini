@@ -26,10 +26,10 @@ class Report(models.Model):
         related_name='reports'
     )
     
-    # File upload
-    report_image = models.ImageField(
+    # File upload - accepts both images and PDFs
+    report_image = models.FileField(
         upload_to='reports/%Y/%m/%d/',
-        help_text="Medical report image (jpg, png, pdf)"
+        help_text="Medical report (jpg, png, pdf)"
     )
     
     # Metadata
