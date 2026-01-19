@@ -130,15 +130,24 @@ def patient_reports_list(request, patient_id):
     elif request.method == 'POST':
         # Create report for this patient
         try:
-            # Don't use .copy() with file uploads - causes pickle error in Python 3.13
-            # Instead, work directly with request.data
+            # For file uploads, use request.FILES instead of request.data
+            report_image = request.FILES.get('report_image')
+            uploaded_by = request.data.get('uploaded_by', 'system')
+            
+            if not report_image:
+                return Response(
+                    {'error': 'No report image provided'},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+            
             data = {
                 'patient': patient.id,
-                'report_image': request.data.get('report_image'),
-                'uploaded_by': request.data.get('uploaded_by', 'system')
+                'report_image': report_image,
+                'uploaded_by': uploaded_by
             }
             
             logger.info(f"Attempting to upload report for patient {patient_id}")
+            logger.info(f"File name: {report_image.name}, Size: {report_image.size} bytes")
             logger.info(f"File storage backend: {__import__('django.conf', fromlist=['settings']).settings.DEFAULT_FILE_STORAGE if hasattr(__import__('django.conf', fromlist=['settings']).settings, 'DEFAULT_FILE_STORAGE') else 'Not set'}")
             
             serializer = ReportCreateSerializer(data=data)
