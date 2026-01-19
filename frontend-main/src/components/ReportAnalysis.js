@@ -248,15 +248,15 @@ const ReportAnalysis = ({ patientId }) => {
 														<ReactMarkdown
 															className="markdown-content"
 															components={{
-																h1: (props) => <h4 className="text-primary mt-3 mb-2" {...props} />,
-																h2: (props) => <h5 className="text-secondary mt-3 mb-2" {...props} />,
-																h3: (props) => <h6 className="text-dark mt-2 mb-1" {...props} />,
-																p: (props) => <p className="mb-2" {...props} />,
-																ul: (props) => <ul className="mb-2" {...props} />,
-																li: (props) => <li className="mb-1" {...props} />,
-																strong: (props) => <strong className="text-dark" {...props} />,
-																hr: (props) => <hr className="my-3" {...props} />,
-																table: (props) => <table className="table table-sm table-bordered" {...props} />
+																h1: ({children}) => <h4 className="text-primary mt-3 mb-2">{children}</h4>,
+																h2: ({children}) => <h5 className="text-secondary mt-3 mb-2">{children}</h5>,
+																h3: ({children}) => <h6 className="text-dark mt-2 mb-1">{children}</h6>,
+																p: ({children}) => <p className="mb-2">{children}</p>,
+																ul: ({children}) => <ul className="mb-2">{children}</ul>,
+																li: ({children}) => <li className="mb-1">{children}</li>,
+																strong: ({children}) => <strong className="text-dark">{children}</strong>,
+																hr: () => <hr className="my-3" />,
+																table: ({children}) => <table className="table table-sm table-bordered">{children}</table>
 															}}
 														>
 															{
