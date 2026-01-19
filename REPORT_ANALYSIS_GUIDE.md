@@ -223,7 +223,7 @@ AZURE_DOCUMENT_INTELLIGENCE_KEY=your-api-key
    Date: 2026-01-19
    Blood Pressure: 120/80 mmHg
    Heart Rate: 72 bpm
-   Temperature: 98.6°F
+   Temperature: 37.0°C
    Diagnosis: Normal checkup
    ```
 3. Save as JPG or PDF

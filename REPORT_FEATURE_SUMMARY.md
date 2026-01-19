@@ -254,7 +254,7 @@ Identifies important medical terms like:
    Vital Signs:
    - Blood Pressure: 120/80 mmHg
    - Heart Rate: 72 bpm
-   - Temperature: 98.6°F
+   - Temperature: 37.0°C
    - SpO2: 98%
    
    Lab Results:

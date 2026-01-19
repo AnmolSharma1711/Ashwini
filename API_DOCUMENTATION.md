@@ -299,7 +299,7 @@ GET /api/patients/1/measurements/latest/
   "id": 1,
   "timestamp": "2026-01-07T11:00:00Z",
   "blood_pressure": "120/80",
-  "temperature": 98.6,
+  "temperature": 37.0,
   "spo2": 98.0,
   "heart_rate": 72.0,
   "source": "manual"
@@ -441,7 +441,7 @@ GET /api/devices/KIOSK-001/command/
 {
   "patient_id": 1,
   "blood_pressure": "120/80",
-  "temperature": 98.6,
+  "temperature": 37.0,
   "spo2": 98.0,
   "heart_rate": 72.0
 }
@@ -460,7 +460,7 @@ GET /api/devices/KIOSK-001/command/
   "patient": 1,
   "timestamp": "2026-01-07T12:00:00Z",
   "blood_pressure": "120/80",
-  "temperature": 98.6,
+  "temperature": 37.0,
   "spo2": 98.0,
   "heart_rate": 72.0,
   "source": "device"
