@@ -46,15 +46,26 @@ class ReportCloudinaryStorage(MediaCloudinaryStorage):
     def url(self, name):
         """
         Override URL generation to use correct resource_type for PDFs.
+        For raw files, we need to include the extension in the URL.
         """
         # Detect file type from extension
         ext = os.path.splitext(name)[1].lower()
         
         if ext == '.pdf':
             # For PDFs, generate URL with resource_type='raw'
-            # Extract the public_id from the name
-            public_id = name.replace('\\', '/').split('.')[0]
-            return cloudinary.CloudinaryImage(public_id).build_url(resource_type='raw')
+            # Use cloudinary.utils to build the correct URL
+            import cloudinary.utils
+            
+            # Get the public_id - for raw files, keep the extension
+            public_id = name.replace('\\', '/')
+            
+            # Build the raw URL properly
+            url, _ = cloudinary.utils.cloudinary_url(
+                public_id,
+                resource_type='raw',
+                secure=True
+            )
+            return url
         else:
             # For images, use the default URL generation
             return super().url(name)
