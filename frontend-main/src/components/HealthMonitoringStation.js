@@ -291,7 +291,10 @@ const HealthMonitoringStation = () => {
 
 			// Reset file selection
 			setSelectedFile(null);
-			document.getElementById("reportFileInput").value = "";
+			const fileInput = document.getElementById("reportFileInput");
+			const cameraInput = document.getElementById("reportCameraInput");
+			if (fileInput) fileInput.value = "";
+			if (cameraInput) cameraInput.value = "";
 
 			// Show report analysis section
 			setShowReportAnalysis(true);
@@ -657,27 +660,55 @@ const HealthMonitoringStation = () => {
 								Upload lab reports, prescriptions, or medical
 								documents for AI-powered analysis.
 							</p>
+							
+							{/* File Upload or Camera Options */}
 							<div className="mb-3">
-								<label className="form-label">
-									Select Report Image/PDF
-								</label>
-								<input
-									type="file"
-									id="reportFileInput"
-									className="form-control"
-									accept="image/jpeg,image/jpg,image/png,application/pdf"
-									onChange={handleFileSelect}
-									disabled={!selectedPatient || uploadingReport}
-								/>
+								<div className="btn-group w-100 mb-2" role="group">
+									<input
+										type="file"
+										id="reportFileInput"
+										className="d-none"
+										accept="image/jpeg,image/jpg,image/png,application/pdf"
+										onChange={handleFileSelect}
+										disabled={!selectedPatient || uploadingReport}
+									/>
+									<label
+										htmlFor="reportFileInput"
+										className="btn btn-outline-primary w-50"
+										style={{ cursor: selectedPatient && !uploadingReport ? 'pointer' : 'not-allowed' }}
+									>
+										<i className="bi bi-folder2-open"></i> Choose File
+									</label>
+									
+									<input
+										type="file"
+										id="reportCameraInput"
+										className="d-none"
+										accept="image/*"
+										capture="environment"
+										onChange={handleFileSelect}
+										disabled={!selectedPatient || uploadingReport}
+									/>
+									<label
+										htmlFor="reportCameraInput"
+										className="btn btn-outline-primary w-50"
+										style={{ cursor: selectedPatient && !uploadingReport ? 'pointer' : 'not-allowed' }}
+									>
+										<i className="bi bi-camera"></i> Take Photo
+									</label>
+								</div>
+								
 								{selectedFile && (
-									<small className="text-success">
+									<div className="alert alert-success py-2 mb-0">
 										<i className="bi bi-check-circle"></i>{" "}
-										Selected: {selectedFile.name}
-									</small>
+										<strong>Selected:</strong> {selectedFile.name}
+										<br />
+										<small>Size: {(selectedFile.size / 1024).toFixed(2)} KB</small>
+									</div>
 								)}
 							</div>
 							<button
-								className="btn btn-warning w-100"
+								className="btn btn-warning w-100 mb-2"
 								onClick={handleUploadReport}
 								disabled={
 									!selectedPatient ||
@@ -690,8 +721,8 @@ const HealthMonitoringStation = () => {
 									? "Uploading & Analyzing..."
 									: "Upload & Analyze Report"}
 							</button>
-							<p className="text-muted mt-2 small">
-								Supported formats: JPG, PNG, PDF (Max 10MB)
+							<p className="text-muted mb-2 small">
+								<i className="bi bi-info-circle"></i> Supported formats: JPG, PNG, PDF (Max 10MB)
 								<br />
 								<strong>Azure AI Document Intelligence</strong>{" "}
 								will extract text and key medical phrases
