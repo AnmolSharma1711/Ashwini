@@ -134,21 +134,36 @@ def patient_reports_list(request, patient_id):
             report_image = request.FILES.get('report_image')
             uploaded_by = request.data.get('uploaded_by', 'system')
             
+            logger.info(f"=== Report Upload Debug ===")
+            logger.info(f"request.FILES keys: {list(request.FILES.keys())}")
+            logger.info(f"request.data keys: {list(request.data.keys())}")
+            
             if not report_image:
+                logger.error("No report image in request.FILES")
                 return Response(
                     {'error': 'No report image provided'},
                     status=status.HTTP_400_BAD_REQUEST
                 )
+            
+            logger.info(f"File name: {report_image.name}")
+            logger.info(f"File size: {report_image.size} bytes")
+            logger.info(f"Content type: {report_image.content_type}")
+            
+            # Try to validate if it's an image using Pillow
+            try:
+                from PIL import Image
+                report_image.seek(0)
+                img = Image.open(report_image)
+                logger.info(f"Image format: {img.format}, Size: {img.size}, Mode: {img.mode}")
+                report_image.seek(0)  # Reset for Django to use
+            except Exception as img_error:
+                logger.error(f"Pillow image validation failed: {img_error}")
             
             data = {
                 'patient': patient.id,
                 'report_image': report_image,
                 'uploaded_by': uploaded_by
             }
-            
-            logger.info(f"Attempting to upload report for patient {patient_id}")
-            logger.info(f"File name: {report_image.name}, Size: {report_image.size} bytes")
-            logger.info(f"File storage backend: {__import__('django.conf', fromlist=['settings']).settings.DEFAULT_FILE_STORAGE if hasattr(__import__('django.conf', fromlist=['settings']).settings, 'DEFAULT_FILE_STORAGE') else 'Not set'}")
             
             serializer = ReportCreateSerializer(data=data)
             if serializer.is_valid():
