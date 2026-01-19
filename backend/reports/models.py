@@ -1,6 +1,15 @@
 from django.db import models
 from patients.models import Patient
 import json
+from django.conf import settings
+
+
+# Import custom storage if in production with Cloudinary
+if not settings.DEBUG and hasattr(settings, 'CLOUDINARY_STORAGE'):
+    from .storage import ReportCloudinaryStorage
+    report_storage = ReportCloudinaryStorage()
+else:
+    report_storage = None  # Use default storage
 
 
 class Report(models.Model):
@@ -29,6 +38,7 @@ class Report(models.Model):
     # File upload - accepts both images and PDFs
     report_image = models.FileField(
         upload_to='reports/%Y/%m/%d/',
+        storage=report_storage,  # Use custom storage with resource_type='auto'
         help_text="Medical report (jpg, png, pdf)"
     )
     
