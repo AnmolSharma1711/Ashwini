@@ -66,6 +66,7 @@ class AzureDocumentIntelligenceService:
             raise Exception("Azure Document Intelligence service is not configured. Please set AZURE_DOCUMENT_INTELLIGENCE_ENDPOINT and AZURE_DOCUMENT_INTELLIGENCE_KEY environment variables.")
         
         try:
+            logger.info("=== STARTING DOCUMENT ANALYSIS ===")
             # Use the read model for general document analysis
             poller = self.client.begin_analyze_document(
                 "prebuilt-read",  # Using prebuilt read model for OCR
@@ -76,20 +77,27 @@ class AzureDocumentIntelligenceService:
             # Wait for the analysis to complete
             result = poller.result()
             
-            # Extract text content
-            extracted_text = ""
+            # Extract raw OCR text
+            raw_ocr_text = ""
             if result.content:
-                extracted_text = result.content
+                raw_ocr_text = result.content
             
-            # Extract key phrases
-            key_phrases = self._extract_key_phrases(extracted_text)
+            logger.info(f"OCR extracted {len(raw_ocr_text)} characters")
+            
+            # Generate readable summary using OpenAI (or use raw OCR as fallback)
+            extracted_text = self._generate_readable_summary(raw_ocr_text)
+            
+            # Extract key phrases using OpenAI
+            key_phrases = self._extract_key_phrases(raw_ocr_text)
             
             # Calculate average confidence score
             confidence_score = self._calculate_confidence(result)
             
+            logger.info(f"=== ANALYSIS COMPLETE: {len(key_phrases)} key phrases, confidence {confidence_score} ===")
+            
             return {
                 'success': True,
-                'extracted_text': extracted_text,
+                'extracted_text': extracted_text,  # Now contains OpenAI-formatted summary
                 'key_phrases': key_phrases,
                 'confidence_score': confidence_score,
                 'page_count': len(result.pages) if result.pages else 0
