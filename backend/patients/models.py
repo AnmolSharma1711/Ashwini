@@ -127,7 +127,7 @@ class Patient(models.Model):
         if hr is not None:
             if hr < 55 or hr > 105:
                 is_critical = True
-            elif (55 <= hr < 65) or (80 < hr <= 105):
+            elif (55 <= hr < 65) or (85 < hr <= 105):
                 is_mild = True
         
         # Temperature assessment (LOW PRIORITY - only extreme values trigger alerts)
