@@ -53,13 +53,13 @@ const HealthMonitoringStation = () => {
 			// Fetch patients in waiting or checking status
 			const response = await getPatients();
 			const monitoringPatients = response.data.filter((p) =>
-				["waiting", "checking", "examined"].includes(p.status)
+				["waiting", "checking", "examined"].includes(p.status),
 			);
 			setPatients(monitoringPatients);
 
 			// Auto-select first checking patient, or first waiting if none checking
 			const checkingPatient = monitoringPatients.find(
-				(p) => p.status === "checking"
+				(p) => p.status === "checking",
 			);
 			if (checkingPatient) {
 				loadPatientDetails(checkingPatient.id);
@@ -127,11 +127,6 @@ const HealthMonitoringStation = () => {
 
 			await createMeasurement(selectedPatient.id, dataToSend);
 
-			// Update patient status to examined if currently checking
-			if (selectedPatient.status === "checking") {
-				await updatePatient(selectedPatient.id, { status: "examined" });
-			}
-
 			showMessage("success", "Measurement saved successfully!");
 
 			// Reset form
@@ -150,7 +145,7 @@ const HealthMonitoringStation = () => {
 			showMessage(
 				"error",
 				"Failed to save measurement: " +
-					(error.response?.data?.detail || error.message)
+					(error.response?.data?.detail || error.message),
 			);
 		} finally {
 			setLoading(false);
@@ -170,6 +165,22 @@ const HealthMonitoringStation = () => {
 		}
 	};
 
+	const handleCompleteExamine = async () => {
+		if (!selectedPatient) return;
+
+		try {
+			await updatePatient(selectedPatient.id, { status: "examined" });
+			loadPatientDetails(selectedPatient.id);
+			fetchPatientsForMonitoring();
+			showMessage(
+				"success",
+				"Examination completed! Patient status updated to examined.",
+			);
+		} catch (error) {
+			showMessage("error", "Failed to complete examination");
+		}
+	};
+
 	const handleStartDeviceMeasurement = async () => {
 		if (!selectedPatient) {
 			showMessage("error", "Please select a patient first");
@@ -181,20 +192,20 @@ const HealthMonitoringStation = () => {
 			// Create a measurement session (device_id = 1 for ESP32)
 			const sessionResponse = await createMeasurementSession(
 				selectedPatient.id,
-				1
+				1,
 			);
 			setSessionId(sessionResponse.data.id);
 
 			showMessage(
 				"success",
-				"IoT measurement started! Device will capture readings..."
+				"IoT measurement started! Device will capture readings...",
 			);
 
 			// Poll for measurement completion every 2 seconds
 			const pollInterval = setInterval(async () => {
 				try {
 					const latestResp = await getLatestMeasurement(
-						selectedPatient.id
+						selectedPatient.id,
 					);
 					if (
 						latestResp.data &&
@@ -220,7 +231,7 @@ const HealthMonitoringStation = () => {
 					setSessionId(null);
 					showMessage(
 						"warning",
-						"Device measurement timeout. Please check device connection."
+						"Device measurement timeout. Please check device connection.",
 					);
 				}
 			}, 60000);
@@ -229,7 +240,7 @@ const HealthMonitoringStation = () => {
 			showMessage(
 				"error",
 				"Failed to start device measurement: " +
-					(error.response?.data?.error || error.message)
+					(error.response?.data?.error || error.message),
 			);
 		}
 	};
@@ -247,17 +258,14 @@ const HealthMonitoringStation = () => {
 			if (!allowedTypes.includes(file.type)) {
 				showMessage(
 					"error",
-					"Please select a valid image file (JPG, PNG) or PDF"
+					"Please select a valid image file (JPG, PNG) or PDF",
 				);
 				return;
 			}
 
 			// Validate file size (max 10MB)
 			if (file.size > 10 * 1024 * 1024) {
-				showMessage(
-					"error",
-					"File size must be less than 10MB"
-				);
+				showMessage("error", "File size must be less than 10MB");
 				return;
 			}
 
@@ -286,7 +294,7 @@ const HealthMonitoringStation = () => {
 
 			showMessage(
 				"success",
-				"Report uploaded successfully! Analysis in progress..."
+				"Report uploaded successfully! Analysis in progress...",
 			);
 
 			// Reset file selection
@@ -302,7 +310,7 @@ const HealthMonitoringStation = () => {
 			showMessage(
 				"error",
 				"Failed to upload report: " +
-					(error.response?.data?.detail || error.message)
+					(error.response?.data?.detail || error.message),
 			);
 		} finally {
 			setUploadingReport(false);
@@ -406,9 +414,9 @@ const HealthMonitoringStation = () => {
 															"waiting"
 																? "bg-warning"
 																: selectedPatient.status ===
-																  "checking"
-																? "bg-info"
-																: "bg-primary"
+																	  "checking"
+																	? "bg-info"
+																	: "bg-primary"
 														}`}
 													>
 														{selectedPatient.status}
@@ -497,12 +505,25 @@ const HealthMonitoringStation = () => {
 												<th>Timestamp:</th>
 												<td>
 													{new Date(
-														latestMeasurement.timestamp
+														latestMeasurement.timestamp,
 													).toLocaleString()}
 												</td>
 											</tr>
 										</tbody>
 									</table>
+									{/* Complete Examine Button - visible when measurement exists and patient is in checking status */}
+									{selectedPatient?.status === "checking" && (
+										<button
+											className="btn btn-primary w-100 mt-3"
+											onClick={handleCompleteExamine}
+											disabled={loading}
+										>
+											<i className="bi bi-check-circle"></i>{" "}
+											{loading
+												? "Processing..."
+												: "Complete Examine"}
+										</button>
+									)}
 								</div>
 							) : (
 								<p className="text-muted text-center">
@@ -555,7 +576,7 @@ const HealthMonitoringStation = () => {
 											name="temperature"
 											value={measurementData.temperature}
 											onChange={handleMeasurementChange}
-											placeholder="98.6"
+											placeholder="36.4"
 										/>
 									</div>
 
@@ -660,26 +681,38 @@ const HealthMonitoringStation = () => {
 								Upload lab reports, prescriptions, or medical
 								documents for AI-powered analysis.
 							</p>
-							
+
 							{/* File Upload or Camera Options */}
 							<div className="mb-3">
-								<div className="btn-group w-100 mb-2" role="group">
+								<div
+									className="btn-group w-100 mb-2"
+									role="group"
+								>
 									<input
 										type="file"
 										id="reportFileInput"
 										className="d-none"
 										accept="image/jpeg,image/jpg,image/png,application/pdf"
 										onChange={handleFileSelect}
-										disabled={!selectedPatient || uploadingReport}
+										disabled={
+											!selectedPatient || uploadingReport
+										}
 									/>
 									<label
 										htmlFor="reportFileInput"
 										className="btn btn-outline-primary w-50"
-										style={{ cursor: selectedPatient && !uploadingReport ? 'pointer' : 'not-allowed' }}
+										style={{
+											cursor:
+												selectedPatient &&
+												!uploadingReport
+													? "pointer"
+													: "not-allowed",
+										}}
 									>
-										<i className="bi bi-folder2-open"></i> Choose File
+										<i className="bi bi-folder2-open"></i>{" "}
+										Choose File
 									</label>
-									
+
 									<input
 										type="file"
 										id="reportCameraInput"
@@ -687,23 +720,39 @@ const HealthMonitoringStation = () => {
 										accept="image/*"
 										capture="environment"
 										onChange={handleFileSelect}
-										disabled={!selectedPatient || uploadingReport}
+										disabled={
+											!selectedPatient || uploadingReport
+										}
 									/>
 									<label
 										htmlFor="reportCameraInput"
 										className="btn btn-outline-primary w-50"
-										style={{ cursor: selectedPatient && !uploadingReport ? 'pointer' : 'not-allowed' }}
+										style={{
+											cursor:
+												selectedPatient &&
+												!uploadingReport
+													? "pointer"
+													: "not-allowed",
+										}}
 									>
-										<i className="bi bi-camera"></i> Take Photo
+										<i className="bi bi-camera"></i> Take
+										Photo
 									</label>
 								</div>
-								
+
 								{selectedFile && (
 									<div className="alert alert-success py-2 mb-0">
 										<i className="bi bi-check-circle"></i>{" "}
-										<strong>Selected:</strong> {selectedFile.name}
+										<strong>Selected:</strong>{" "}
+										{selectedFile.name}
 										<br />
-										<small>Size: {(selectedFile.size / 1024).toFixed(2)} KB</small>
+										<small>
+											Size:{" "}
+											{(selectedFile.size / 1024).toFixed(
+												2,
+											)}{" "}
+											KB
+										</small>
 									</div>
 								)}
 							</div>
@@ -722,9 +771,12 @@ const HealthMonitoringStation = () => {
 									: "Upload & Analyze Report"}
 							</button>
 							<p className="text-muted mb-2 small">
-								<i className="bi bi-info-circle"></i> Supported formats: JPG, PNG, PDF (Max 10MB)
+								<i className="bi bi-info-circle"></i> Supported
+								formats: JPG, PNG, PDF (Max 10MB)
 								<br />
-								<strong>Azure AI Document Intelligence</strong>{" "}
+								<strong>
+									Azure AI Document Intelligence
+								</strong>{" "}
 								will extract text and key medical phrases
 							</p>
 							{selectedPatient && (
@@ -732,13 +784,11 @@ const HealthMonitoringStation = () => {
 									className="btn btn-link btn-sm w-100 mt-2"
 									onClick={() =>
 										setShowReportAnalysis(
-											!showReportAnalysis
+											!showReportAnalysis,
 										)
 									}
 								>
-									{showReportAnalysis
-										? "Hide"
-										: "View"}{" "}
+									{showReportAnalysis ? "Hide" : "View"}{" "}
 									Report Analysis
 								</button>
 							)}
