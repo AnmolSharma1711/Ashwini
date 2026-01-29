@@ -71,10 +71,23 @@ class Patient(models.Model):
         """
         Auto-assess health status based on latest measurements.
         
+        Priority: SpO2 > Heart Rate > Temperature (temperature has lowest importance)
+        
         Classification Rules:
-        - Critical: Temp <34.5°C or >38.5°C, HR <55 or >105 BPM, SpO2 <88%
-        - Needs Attention: Temp 34.5-35°C or 37-38.5°C, HR 55-65 or 80-105 BPM, SpO2 88-94%
-        - Stable: Temp 35-37°C, HR 65-80 BPM, SpO2 94-100%
+        SpO2 (Primary):
+        - Critical: <88%
+        - Needs Attention: 88-94%
+        - Stable: 94-100%
+        
+        Heart Rate (Primary):
+        - Critical: <55 or >105 BPM
+        - Needs Attention: 55-65 or 80-105 BPM
+        - Stable: 65-80 BPM
+        
+        Temperature (Low Priority - only extreme values matter):
+        - Critical: <33°C or >40°C (only very extreme)
+        - Needs Attention: 33-34°C or 39-40°C (moderately extreme)
+        - Stable: 34-39°C (wider tolerance)
         """
         from django.utils import timezone
         
@@ -99,30 +112,34 @@ class Patient(models.Model):
             self.save()
             return
         
-        # Critical conditions - any one critical makes the status critical
+        # Track critical and mild conditions separately
         is_critical = False
         is_mild = False
         
-        # Temperature assessment
-        if temp is not None:
-            if temp < 34.5 or temp > 38.5:
+        # SpO2 assessment (HIGH PRIORITY)
+        if spo2 is not None:
+            if spo2 < 88:
                 is_critical = True
-            elif (34.5 <= temp < 35) or (37 < temp <= 38.5):
+            elif 88 <= spo2 < 94:
                 is_mild = True
         
-        # Heart Rate assessment
+        # Heart Rate assessment (HIGH PRIORITY)
         if hr is not None:
             if hr < 55 or hr > 105:
                 is_critical = True
             elif (55 <= hr < 65) or (80 < hr <= 105):
                 is_mild = True
         
-        # SpO2 assessment
-        if spo2 is not None:
-            if spo2 < 88:
+        # Temperature assessment (LOW PRIORITY - only extreme values trigger alerts)
+        # Wider tolerance: slightly off temperature doesn't affect status
+        if temp is not None:
+            if temp < 33 or temp > 40:
+                # Only very extreme temperatures are critical
                 is_critical = True
-            elif 88 <= spo2 < 94:
+            elif (33 <= temp < 34) or (39 < temp <= 40):
+                # Moderately extreme temperatures need attention
                 is_mild = True
+            # Temperature 34-39°C is considered acceptable (wider range)
         
         # Determine final status (critical > mild > normal)
         if is_critical:
