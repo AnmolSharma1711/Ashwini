@@ -114,19 +114,30 @@ const HealthMonitoringStation = () => {
 			// Merge manual entry with existing latestMeasurement data
 			// Only update fields that have actual values entered (not blank)
 			const dataToSend = {};
+			let usedExistingDeviceData = false;
 
-			// Start with existing measurement data if available
-			if (latestMeasurement) {
-				if (latestMeasurement.blood_pressure)
-					dataToSend.blood_pressure =
-						latestMeasurement.blood_pressure;
-				if (latestMeasurement.temperature)
+			// Start with existing measurement data if available (from device)
+			if (latestMeasurement && latestMeasurement.source === "device") {
+				if (latestMeasurement.blood_pressure) {
+					dataToSend.blood_pressure = latestMeasurement.blood_pressure;
+					usedExistingDeviceData = true;
+				}
+				if (latestMeasurement.temperature) {
 					dataToSend.temperature = latestMeasurement.temperature;
-				if (latestMeasurement.spo2)
+					usedExistingDeviceData = true;
+				}
+				if (latestMeasurement.spo2) {
 					dataToSend.spo2 = latestMeasurement.spo2;
-				if (latestMeasurement.heart_rate)
+					usedExistingDeviceData = true;
+				}
+				if (latestMeasurement.heart_rate) {
 					dataToSend.heart_rate = latestMeasurement.heart_rate;
+					usedExistingDeviceData = true;
+				}
 			}
+
+			// Track if any manual data is being entered
+			let hasManualEntry = false;
 
 			// Override with manually entered values (only if not empty)
 			Object.keys(measurementData).forEach((key) => {
@@ -135,6 +146,7 @@ const HealthMonitoringStation = () => {
 					measurementData[key] !== null
 				) {
 					dataToSend[key] = measurementData[key];
+					hasManualEntry = true;
 				}
 			});
 
@@ -142,6 +154,13 @@ const HealthMonitoringStation = () => {
 				showMessage("error", "Please enter at least one vital sign");
 				setLoading(false);
 				return;
+			}
+
+			// Determine source: "manual+device" if merged, "manual" if all manual
+			if (usedExistingDeviceData && hasManualEntry) {
+				dataToSend.source = "manual+device";
+			} else {
+				dataToSend.source = "manual";
 			}
 
 			await createMeasurement(selectedPatient.id, dataToSend);
