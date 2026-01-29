@@ -24,9 +24,10 @@ class MeasurementSerializer(serializers.ModelSerializer):
 class MeasurementCreateSerializer(serializers.ModelSerializer):
     """
     Serializer for creating measurements.
-    Excludes patient and source (set by view).
+    Excludes patient (set by view).
+    Source can be optionally provided by frontend.
     """
     
     class Meta:
         model = Measurement
-        fields = ['blood_pressure', 'temperature', 'spo2', 'heart_rate']
+        fields = ['blood_pressure', 'temperature', 'spo2', 'heart_rate', 'source']

@@ -19,6 +19,7 @@ class Measurement(models.Model):
     SOURCE_CHOICES = [
         ('manual', 'Manual Entry'),
         ('device', 'IoT Device'),
+        ('manual+device', 'Manual + Device'),
     ]
     
     patient = models.ForeignKey(

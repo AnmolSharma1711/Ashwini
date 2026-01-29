@@ -54,9 +54,11 @@ def patient_measurements_list(request, patient_id):
     elif request.method == 'POST':
         serializer = MeasurementCreateSerializer(data=request.data)
         if serializer.is_valid():
+            # Use source from request if provided, otherwise default to 'manual'
+            source = request.data.get('source', 'manual')
             measurement = serializer.save(
                 patient=patient,
-                source='manual'
+                source=source
             )
             
             # Auto-assess patient health status after new measurement
