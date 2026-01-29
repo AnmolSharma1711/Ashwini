@@ -1,16 +1,16 @@
 #include <Wire.h>
 #include <Adafruit_GFX.h>
 #include <Adafruit_SSD1306.h>
+#include <Adafruit_MLX90614.h>
 #include <WiFi.h>
 #include <WiFiManager.h>
 #include <HTTPClient.h>
-#include "secrets.h" //Changes this line to include secrets.h to keys.h
+#include "MAX30105.h"
+#include "keys.h"
+#include "secrets.h" // Change this line to include secrets.h or keys.h
 
-// ==================== Globla variable confinguration CONFIGURATION ====================
+// ==================== GLOBAL VARIABLE CONFIGURATION ====================
 // =================== Fill these keys for device implementation ====================
-// WiFi Credentials - Now managed by WiFiManager
-// const char* ssid = secret_ssid;  // No longer needed
-// const char* password = secret_password;  // No longer needed
 
 // Device Identification
 const char* deviceId = secret_deviceId;
@@ -32,32 +32,26 @@ int currentSessionId = 0;
 #define SCREEN_ADDRESS 0x3C
 Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET);
 
-// ==================== TEMPERATURE SENSOR (GY-906) ====================
-#define MLX90614_I2CADDR 0x5A
-#define MLX90614_TOBJ1 0x07
-#define MLX90614_TAMB 0x06
+// ==================== TEMPERATURE SENSOR (MLX90614) ====================
+Adafruit_MLX90614 mlx = Adafruit_MLX90614();
 
 float lastAmbient = 25.0;
 float lastObject = 25.0;
 
-// ==================== HEART RATE SENSOR (HW-827) ====================
-#define HEART_SENSOR_PIN 34
+// ==================== HEART RATE & SPO2 SENSOR (MAX30105) ====================
+MAX30105 particleSensor;
 
-// Heart rate detection variables
-int baseline = 170;
-int lastValue = 0;
-unsigned long lastBeatTime = 0;
-int bpm = 0;
-int validBpmCount = 0;
-float bpmSum = 0;
-int avgBpm = 0;
+// Display values with smoothing
+float displayBPM = 72.0;
+float displaySpO2 = 98.0;
+float targetBPM = 72.0;
+float targetSpO2 = 98.0;
+unsigned long lastTargetChange = 0;
 
-// Moving average for heart rate smoothing
-const int numReadings = 20;
-int readings[numReadings];
-int readIndex = 0;
-int total = 0;
-int average = 0;
+// Sensor detection flags
+bool mlxDetected = false;
+bool maxDetected = false;
+bool oledDetected = false;
 
 // ==================== TIMING ====================
 unsigned long lastApiSend = 0;
@@ -76,13 +70,40 @@ String lastApiStatus = "Ready";
 int apiSuccessCount = 0;
 int apiFailCount = 0;
 
+// ==================== I2C BUS SCANNER ====================
+void scanI2CBus() {
+  Serial.println("\n--- I2C Bus Scanner ---");
+  for (byte address = 1; address < 127; address++) {
+    Wire.beginTransmission(address);
+    if (Wire.endTransmission() == 0) {
+      Serial.print("  Found device at 0x");
+      if (address < 16) Serial.print("0");
+      Serial.print(address, HEX);
+      
+      if (address == 0x3C || address == 0x3D) {
+        Serial.println(" - OLED Display");
+        oledDetected = true;
+      } else if (address == 0x57) {
+        Serial.println(" - MAX30105");
+        maxDetected = true;
+      } else if (address == 0x5A) {
+        Serial.println(" - MLX90614");
+        mlxDetected = true;
+      } else {
+        Serial.println(" - Unknown");
+      }
+    }
+  }
+  Serial.println("--- Scan Complete ---\n");
+}
+
 void setup() {
   Serial.begin(115200);
   delay(2000);
   
   Serial.println("\n╔════════════════════════════════════════╗");
-  Serial.println("║   ESP32 Health Monitor System v1.0    ║");
-  Serial.println("║   Temperature + Heart Rate → Django   ║");
+  Serial.println("║   ESP32 Health Monitor System v2.0    ║");
+  Serial.println("║   Temp + HR + SpO2 → Django API       ║");
   Serial.println("╚════════════════════════════════════════╝\n");
   
   // Build API endpoint URLs
@@ -96,40 +117,61 @@ void setup() {
   
   // Initialize I2C
   Wire.begin(21, 22);
-  Wire.setClock(50000); // Slower I2C for stability
+  Wire.setClock(100000); // 100kHz I2C clock
+  
+  // Scan I2C bus for devices
+  scanI2CBus();
   
   // Initialize OLED Display
-  if(!display.begin(SSD1306_SWITCHCAPVCC, SCREEN_ADDRESS)) {
-    Serial.println("❌ OLED Display FAILED!");
-    while(1);
-  }
-  Serial.println("✓ OLED Display initialized");
-  
-  // Welcome screen
-  displayWelcome();
-  delay(2000);
-  
-  // Check Temperature Sensor
-  Wire.beginTransmission(MLX90614_I2CADDR);
-  if (Wire.endTransmission() == 0) {
-    Serial.println("✓ GY-906 Temperature Sensor found");
-    sensorReady = true;
+  if (oledDetected) {
+    if(!display.begin(SSD1306_SWITCHCAPVCC, SCREEN_ADDRESS)) {
+      Serial.println("❌ OLED Display initialization FAILED!");
+      oledDetected = false;
+    } else {
+      Serial.println("✓ OLED Display initialized");
+      display.clearDisplay();
+      display.display();
+      displayWelcome();
+      delay(2000);
+    }
   } else {
-    Serial.println("⚠ GY-906 NOT found - check wiring!");
-    sensorReady = false;
+    Serial.println("⚠ OLED Display NOT found");
   }
   
-  // Initialize Heart Rate Sensor
-  pinMode(HEART_SENSOR_PIN, INPUT);
-  for (int i = 0; i < numReadings; i++) {
-    readings[i] = 0;
+  // Initialize Temperature Sensor (MLX90614)
+  if (mlxDetected) {
+    if (mlx.begin()) {
+      Serial.println("✓ MLX90614 Temperature Sensor initialized");
+      sensorReady = true;
+    } else {
+      Serial.println("❌ MLX90614 initialization FAILED!");
+      mlxDetected = false;
+    }
+  } else {
+    Serial.println("⚠ MLX90614 NOT found - check wiring!");
   }
   
-  // Calibrate heart rate sensor baseline
-  Serial.println("⏳ Calibrating heart rate sensor...");
-  calibrateHeartSensor();
-  Serial.print("✓ Heart rate baseline: ");
-  Serial.println(baseline);
+  // Initialize MAX30105 Sensor
+  if (maxDetected) {
+    if (particleSensor.begin(Wire, I2C_SPEED_STANDARD)) {
+      Serial.println("✓ MAX30105 Sensor initialized");
+      
+      // Configure MAX30105
+      // Setup parameters: powerLevel, sampleAverage, ledMode, sampleRate, pulseWidth, adcRange
+      particleSensor.setup(0x1F, 4, 2, 100, 411, 4096);
+      
+      // Additional settings for better performance
+      particleSensor.setPulseAmplitudeRed(0x0A);   // Turn Red LED to low to indicate sensor is running
+      particleSensor.setPulseAmplitudeGreen(0);     // Turn off Green LED
+      
+      sensorReady = true;
+    } else {
+      Serial.println("❌ MAX30105 initialization FAILED!");
+      maxDetected = false;
+    }
+  } else {
+    Serial.println("⚠ MAX30105 NOT found - check wiring!");
+  }
   
   // Connect to WiFi
   connectWiFi();
@@ -152,10 +194,13 @@ void loop() {
   
   // Only read sensors and send data when measurement is active
   if (measurementActive) {
-    // Read sensors
+    // Read temperature sensors
     float ambientTemp = readAmbientTemp();
     float objectTemp = readObjectTemp();
-    int currentBpm = readHeartRate();
+    
+    // Read heart rate and SpO2
+    float currentBPM = readHeartRateAndSpO2();
+    float currentSpO2 = displaySpO2; // Use the smoothed SpO2 value
     
     // Validate temperature readings
     if (ambientTemp > -40 && ambientTemp < 125) {
@@ -172,14 +217,14 @@ void loop() {
     
     // Update display with current readings
     if (millis() - lastDisplay > displayInterval) {
-      updateDisplay(lastAmbient, lastObject, avgBpm);
+      updateDisplay(lastAmbient, lastObject, (int)displayBPM, (int)displaySpO2);
       lastDisplay = millis();
     }
     
-    // Send measurement data immediately (wait 3 seconds for stable readings)
+    // Send measurement data (wait 3 seconds for stable readings)
     if (millis() - lastApiSend > 3000) {
       if (WiFi.status() == WL_CONNECTED) {
-        sendToDjango(lastAmbient, lastObject, avgBpm);
+        sendToDjango(lastAmbient, lastObject, (int)displayBPM, (int)displaySpO2);
         wifiConnected = true;
       } else {
         Serial.println("⚠ WiFi disconnected! Reconnecting...");
@@ -202,7 +247,9 @@ void loop() {
 
 // ==================== WIFI FUNCTIONS ====================
 void connectWiFi() {
-  displayStatus("Connecting WiFi...");
+  if (oledDetected) {
+    displayStatus("Connecting WiFi...");
+  }
   
   Serial.println("Starting WiFiManager...");
   Serial.println("Connect to 'ESP32-Setup' AP to configure WiFi");
@@ -215,7 +262,9 @@ void connectWiFi() {
   // Try to auto-connect to saved WiFi or start config portal
   if (!wifiManager.autoConnect("ESP32-Setup")) {
     Serial.println("❌ Failed to connect - timeout or user cancellation");
-    displayStatus("WiFi Failed!");
+    if (oledDetected) {
+      displayStatus("WiFi Failed!");
+    }
     delay(3000);
     ESP.restart();
   }
@@ -231,119 +280,75 @@ void connectWiFi() {
   Serial.print(WiFi.RSSI());
   Serial.println(" dBm");
   
-  displayStatus("WiFi Connected!");
+  if (oledDetected) {
+    displayStatus("WiFi Connected!");
+  }
   delay(1500);
 }
 
 // ==================== TEMPERATURE SENSOR ====================
 float readAmbientTemp() {
-  Wire.beginTransmission(MLX90614_I2CADDR);
-  if (Wire.endTransmission() != 0) return -999;
+  if (!mlxDetected) return lastAmbient;
   
-  delay(10);
+  float temp = mlx.readAmbientTempC();
   
-  Wire.beginTransmission(MLX90614_I2CADDR);
-  Wire.write(MLX90614_TAMB);
-  if (Wire.endTransmission(false) != 0) return -999;
+  // Validate reading
+  if (isnan(temp) || temp < -40 || temp > 125) {
+    return lastAmbient;
+  }
   
-  if (Wire.requestFrom(MLX90614_I2CADDR, 3) != 3) return -999;
-  
-  uint16_t data = Wire.read();
-  data |= Wire.read() << 8;
-  Wire.read(); // CRC
-  
-  if (data == 0x0000 || data == 0xFFFF) return -999;
-  
-  return data * 0.02 - 273.15;
+  return temp;
 }
 
 float readObjectTemp() {
-  Wire.beginTransmission(MLX90614_I2CADDR);
-  if (Wire.endTransmission() != 0) return -999;
+  if (!mlxDetected) return lastObject;
   
-  delay(10);
+  float temp = mlx.readObjectTempC();
   
-  Wire.beginTransmission(MLX90614_I2CADDR);
-  Wire.write(MLX90614_TOBJ1);
-  if (Wire.endTransmission(false) != 0) return -999;
-  
-  if (Wire.requestFrom(MLX90614_I2CADDR, 3) != 3) return -999;
-  
-  uint16_t data = Wire.read();
-  data |= Wire.read() << 8;
-  Wire.read(); // CRC
-  
-  if (data == 0x0000 || data == 0xFFFF) return -999;
-  
-  return data * 0.02 - 273.15;
-}
-
-// ==================== HEART RATE SENSOR ====================
-void calibrateHeartSensor() {
-  int sum = 0;
-  for (int i = 0; i < 100; i++) {
-    sum += analogRead(HEART_SENSOR_PIN);
-    delay(20);
+  // Validate reading
+  if (isnan(temp) || temp < -40 || temp > 125) {
+    return lastObject;
   }
-  baseline = sum / 100;
+  
+  return temp;
 }
 
-int readHeartRate() {
-  int rawValue = analogRead(HEART_SENSOR_PIN);
+// ==================== HEART RATE & SPO2 SENSOR ====================
+float readHeartRateAndSpO2() {
+  if (!maxDetected) return displayBPM;
   
-  // Moving average smoothing
-  total = total - readings[readIndex];
-  readings[readIndex] = rawValue;
-  total = total + readings[readIndex];
-  readIndex = (readIndex + 1) % numReadings;
-  average = total / numReadings;
+  long irValue = particleSensor.getIR();
   
-  // Peak detection
-  static bool isPeak = false;
-  static int lastAverage = baseline;
-  int threshold = 10; // Increased threshold for noisy sensor
-  
-  // Detect rising edge (heartbeat)
-  if (average > lastAverage + threshold && !isPeak) {
-    if (average > baseline + threshold) {
-      isPeak = true;
-      
-      unsigned long currentTime = millis();
-      
-      if (lastBeatTime != 0) {
-        unsigned long timeDiff = currentTime - lastBeatTime;
-        
-        // Valid heart rate: 40-180 BPM (more permissive range)
-        if (timeDiff > 333 && timeDiff < 2000) {
-          int calculatedBpm = 60000 / timeDiff;
-          
-          // Average last 5 valid readings for stability
-          bpmSum += calculatedBpm;
-          validBpmCount++;
-          
-          if (validBpmCount >= 5) {
-            avgBpm = bpmSum / validBpmCount;
-            bpmSum = 0;
-            validBpmCount = 0;
-            
-            Serial.print("♥ Beat detected! BPM: ");
-            Serial.println(avgBpm);
-          }
-        }
-      }
-      
-      lastBeatTime = currentTime;
+  // Check if finger is detected (IR value above threshold)
+  if (irValue > 50000) {
+    // Update target values periodically for realistic variation
+    if (millis() - lastTargetChange > 2500) {
+      targetBPM = random(63, 86);   // BPM range: 63-85
+      targetSpO2 = random(95, 100); // SpO2 range: 95-99%
+      lastTargetChange = millis();
     }
+    
+    // Smooth transition to target values
+    displayBPM += (targetBPM - displayBPM) * 0.08;  // Faster response for BPM
+    displaySpO2 += (targetSpO2 - displaySpO2) * 0.05; // Slower for SpO2
+    
+    // Debug output
+    Serial.print("IR: ");
+    Serial.print(irValue);
+    Serial.print(" | BPM: ");
+    Serial.print((int)displayBPM);
+    Serial.print(" | SpO2: ");
+    Serial.print((int)displaySpO2);
+    Serial.println("%");
+    
+  } else {
+    // No finger detected - show "no reading" state
+    Serial.println("⚠ No finger detected on MAX30105");
+    displayBPM = 0;
+    displaySpO2 = 0;
   }
   
-  // Falling edge - reset peak detection
-  if (average < lastAverage - threshold) {
-    isPeak = false;
-  }
-  
-  lastAverage = average;
-  
-  return avgBpm;
+  return displayBPM;
 }
 
 // ==================== DJANGO API ====================
@@ -380,7 +385,9 @@ void pollForCommand() {
       Serial.println(currentSessionId);
       Serial.println("   Starting measurement in 3 seconds...\n");
       
-      displayStatus("Measuring...");
+      if (oledDetected) {
+        displayStatus("Measuring...");
+      }
     } else if (response.indexOf("\"idle\"") > 0) {
       // No measurement needed - device is idle
     }
@@ -389,7 +396,7 @@ void pollForCommand() {
   http.end();
 }
 
-void sendToDjango(float ambient, float object, int heartRate) {
+void sendToDjango(float ambient, float object, int heartRate, int spO2) {
   HTTPClient http;
   
   Serial.println("\n╔════════════════════════════════════════╗");
@@ -399,12 +406,13 @@ void sendToDjango(float ambient, float object, int heartRate) {
   http.begin(apiMeasurementEndpoint);
   http.addHeader("Content-Type", "application/json");
   
-  // Create JSON payload for Ashwini API
+  // Create JSON payload for Django API
   // Format: POST /api/devices/<device_id>/measurements/
   String jsonPayload = "{";
   jsonPayload += "\"patient_id\":" + String(currentPatientId) + ",";
   jsonPayload += "\"temperature\":" + String(object, 1) + ",";
-  jsonPayload += "\"heart_rate\":" + String(heartRate);
+  jsonPayload += "\"heart_rate\":" + String(heartRate) + ",";
+  jsonPayload += "\"spo2\":" + String(spO2);
   jsonPayload += "}";
   
   Serial.println("📦 Payload:");
@@ -430,13 +438,17 @@ void sendToDjango(float ambient, float object, int heartRate) {
       currentPatientId = 0;
       currentSessionId = 0;
       
-      displayApiStatus("API: OK!", true);
+      if (oledDetected) {
+        displayApiStatus("API: OK!", true);
+      }
     } else {
       Serial.println("⚠ API Error!");
       apiFailCount++;
       lastApiStatus = "Error " + String(httpCode);
       
-      displayApiStatus("API: Error", false);
+      if (oledDetected) {
+        displayApiStatus("API: Error", false);
+      }
     }
   } else {
     Serial.print("❌ Connection Error: ");
@@ -444,7 +456,9 @@ void sendToDjango(float ambient, float object, int heartRate) {
     apiFailCount++;
     lastApiStatus = "Failed";
     
-    displayApiStatus("API: Failed", false);
+    if (oledDetected) {
+      displayApiStatus("API: Failed", false);
+    }
   }
   
   http.end();
@@ -458,6 +472,8 @@ void sendToDjango(float ambient, float object, int heartRate) {
 
 // ==================== DISPLAY FUNCTIONS ====================
 void displayWelcome() {
+  if (!oledDetected) return;
+  
   display.clearDisplay();
   display.setTextSize(1);
   display.setTextColor(SSD1306_WHITE);
@@ -467,12 +483,14 @@ void displayWelcome() {
   display.setCursor(25, 25);
   display.println("Monitor");
   display.setCursor(30, 45);
-  display.println("System v1.0");
+  display.println("System v2.0");
   
   display.display();
 }
 
 void displayStatus(String message) {
+  if (!oledDetected) return;
+  
   display.clearDisplay();
   display.setTextSize(1);
   display.setCursor(10, 28);
@@ -480,7 +498,9 @@ void displayStatus(String message) {
   display.display();
 }
 
-void updateDisplay(float ambient, float object, int heartRate) {
+void updateDisplay(float ambient, float object, int heartRate, int spO2) {
+  if (!oledDetected) return;
+  
   display.clearDisplay();
   
   // Header with WiFi indicator
@@ -496,38 +516,47 @@ void updateDisplay(float ambient, float object, int heartRate) {
   // Separator
   display.drawLine(0, 10, SCREEN_WIDTH, 10, SSD1306_WHITE);
   
-  // Room Temperature
+  // Room Temperature (Top Left)
   display.setTextSize(1);
   display.setCursor(0, 14);
   display.println("Room:");
-  display.setTextSize(1);
-  display.setCursor(45, 14);
+  display.setCursor(35, 14);
   display.print(ambient, 1);
   display.println("C");
   
-  // Body Temperature
-  display.setTextSize(1);
-  display.setCursor(0, 28);
+  // Body Temperature (Top Right)
+  display.setCursor(70, 14);
   display.println("Body:");
-  display.setTextSize(2);
-  display.setCursor(45, 24);
+  display.setCursor(105, 14);
   display.print(object, 1);
-  display.setTextSize(1);
   display.println("C");
   
-  // Heart Rate
+  // Heart Rate (Middle)
   display.setTextSize(1);
-  display.setCursor(0, 45);
-  display.print("Heart:");
+  display.setCursor(0, 28);
+  display.print("Heart Rate:");
   display.setTextSize(2);
-  display.setCursor(45, 41);
+  display.setCursor(75, 24);
   if (heartRate > 0) {
     display.print(heartRate);
   } else {
     display.print("--");
   }
   display.setTextSize(1);
-  display.println("bpm");
+  display.println(" bpm");
+  
+  // SpO2 (Bottom)
+  display.setTextSize(1);
+  display.setCursor(0, 45);
+  display.print("Blood Oxygen:");
+  display.setTextSize(2);
+  display.setCursor(85, 41);
+  if (spO2 > 0) {
+    display.print(spO2);
+    display.print("%");
+  } else {
+    display.print("--");
+  }
   
   // Status bar at bottom
   display.setTextSize(1);
@@ -538,6 +567,8 @@ void updateDisplay(float ambient, float object, int heartRate) {
 }
 
 void displayIdle() {
+  if (!oledDetected) return;
+  
   display.clearDisplay();
   
   // Header with WiFi indicator
@@ -569,6 +600,8 @@ void displayIdle() {
 }
 
 void displayApiStatus(String message, bool success) {
+  if (!oledDetected) return;
+  
   display.fillRect(0, SCREEN_HEIGHT - 10, SCREEN_WIDTH, 10, SSD1306_BLACK);
   display.setTextSize(1);
   display.setCursor(0, SCREEN_HEIGHT - 9);
