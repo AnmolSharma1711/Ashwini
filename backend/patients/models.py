@@ -72,15 +72,15 @@ class Patient(models.Model):
         Auto-assess health status based on latest measurements.
         
         Classification Rules:
-        - Critical: Temp >38°C or <35°C, HR >120 or <50 BPM
-        - Mild: Temp 37.5-38°C or 35-36°C, HR 100-120 or 50-60 BPM
-        - Normal: Temp 36-37.5°C, HR 60-100 BPM
+        - Critical: Temp <34.5°C or >38.5°C, HR <55 or >105 BPM, SpO2 <88%
+        - Needs Attention: Temp 34.5-35°C or 37-38.5°C, HR 55-65 or 80-105 BPM, SpO2 88-94%
+        - Stable: Temp 35-37°C, HR 65-80 BPM, SpO2 94-100%
         """
         from django.utils import timezone
         
         latest = self.measurements.first()  # Already ordered by -timestamp
         
-        if not latest or not latest.temperature or not latest.heart_rate:
+        if not latest:
             self.health_status = 'unknown'
             self.priority_score = 0
             self.last_assessment_time = timezone.now()
@@ -89,16 +89,48 @@ class Patient(models.Model):
         
         temp = latest.temperature
         hr = latest.heart_rate
+        spo2 = latest.spo2
         
-        # Critical conditions
-        if temp > 38 or temp < 35 or hr > 120 or hr < 50:
+        # Check if we have at least one vital sign to assess
+        if temp is None and hr is None and spo2 is None:
+            self.health_status = 'unknown'
+            self.priority_score = 0
+            self.last_assessment_time = timezone.now()
+            self.save()
+            return
+        
+        # Critical conditions - any one critical makes the status critical
+        is_critical = False
+        is_mild = False
+        
+        # Temperature assessment
+        if temp is not None:
+            if temp < 34.5 or temp > 38.5:
+                is_critical = True
+            elif (34.5 <= temp < 35) or (37 < temp <= 38.5):
+                is_mild = True
+        
+        # Heart Rate assessment
+        if hr is not None:
+            if hr < 55 or hr > 105:
+                is_critical = True
+            elif (55 <= hr < 65) or (80 < hr <= 105):
+                is_mild = True
+        
+        # SpO2 assessment
+        if spo2 is not None:
+            if spo2 < 88:
+                is_critical = True
+            elif 88 <= spo2 < 94:
+                is_mild = True
+        
+        # Determine final status (critical > mild > normal)
+        if is_critical:
             self.health_status = 'critical'
             self.priority_score = 100
-        # Mild conditions
-        elif (37.5 <= temp <= 38) or (35 <= temp < 36) or (100 <= hr <= 120) or (50 <= hr < 60):
+        elif is_mild:
             self.health_status = 'mild'
             self.priority_score = 50
-        # Normal
         else:
             self.health_status = 'normal'
             self.priority_score = 10
