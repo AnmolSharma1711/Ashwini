@@ -111,10 +111,29 @@ const HealthMonitoringStation = () => {
 
 		setLoading(true);
 		try {
-			// Filter out empty fields
+			// Merge manual entry with existing latestMeasurement data
+			// Only update fields that have actual values entered (not blank)
 			const dataToSend = {};
+
+			// Start with existing measurement data if available
+			if (latestMeasurement) {
+				if (latestMeasurement.blood_pressure)
+					dataToSend.blood_pressure =
+						latestMeasurement.blood_pressure;
+				if (latestMeasurement.temperature)
+					dataToSend.temperature = latestMeasurement.temperature;
+				if (latestMeasurement.spo2)
+					dataToSend.spo2 = latestMeasurement.spo2;
+				if (latestMeasurement.heart_rate)
+					dataToSend.heart_rate = latestMeasurement.heart_rate;
+			}
+
+			// Override with manually entered values (only if not empty)
 			Object.keys(measurementData).forEach((key) => {
-				if (measurementData[key] !== "") {
+				if (
+					measurementData[key] !== "" &&
+					measurementData[key] !== null
+				) {
 					dataToSend[key] = measurementData[key];
 				}
 			});
@@ -189,6 +208,10 @@ const HealthMonitoringStation = () => {
 
 		setDeviceMeasuring(true);
 		try {
+			// Record the session start time BEFORE creating session
+			// This ensures we only accept measurements taken AFTER this time
+			const sessionStartTime = new Date();
+
 			// Create a measurement session (device_id = 1 for ESP32)
 			const sessionResponse = await createMeasurementSession(
 				selectedPatient.id,
@@ -198,10 +221,11 @@ const HealthMonitoringStation = () => {
 
 			showMessage(
 				"success",
-				"IoT measurement started! Device will capture readings...",
+				"IoT measurement started! Waiting for device to capture readings...",
 			);
 
 			// Poll for measurement completion every 2 seconds
+			// Only accept measurements that were taken AFTER session started
 			const pollInterval = setInterval(async () => {
 				try {
 					const latestResp = await getLatestMeasurement(
@@ -211,12 +235,21 @@ const HealthMonitoringStation = () => {
 						latestResp.data &&
 						latestResp.data.source === "device"
 					) {
-						clearInterval(pollInterval);
-						setDeviceMeasuring(false);
-						setSessionId(null);
-						fetchLatestMeasurement(selectedPatient.id);
-						loadPatientDetails(selectedPatient.id);
-						showMessage("success", "Device measurement completed!");
+						// Check if this measurement was taken AFTER session started
+						const measurementTime = new Date(
+							latestResp.data.timestamp,
+						);
+						if (measurementTime > sessionStartTime) {
+							clearInterval(pollInterval);
+							setDeviceMeasuring(false);
+							setSessionId(null);
+							fetchLatestMeasurement(selectedPatient.id);
+							loadPatientDetails(selectedPatient.id);
+							showMessage(
+								"success",
+								"Device measurement completed!",
+							);
+						}
 					}
 				} catch (err) {
 					// Continue polling
