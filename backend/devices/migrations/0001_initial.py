@@ -9,6 +9,7 @@ class Migration(migrations.Migration):
     initial = True
 
     dependencies = [
+        ('patients', '0001_initial'),
     ]
 
     operations = [
@@ -30,6 +31,7 @@ class Migration(migrations.Migration):
                 ('created_at', models.DateTimeField(auto_now_add=True)),
                 ('updated_at', models.DateTimeField(auto_now=True)),
                 ('device', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='sessions', to='devices.device')),
+                ('patient', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='measurement_sessions', to='patients.patient')),
             ],
             options={
                 'ordering': ['-created_at'],
