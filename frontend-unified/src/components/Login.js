@@ -23,7 +23,7 @@ const Login = () => {
         setLoading(true);
 
         try {
-            const user = await login(username, password);
+            await login(username, password);
             
             // Redirect to the page they tried to visit or home
             navigate(from, { replace: true });
