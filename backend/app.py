@@ -48,11 +48,29 @@ if __name__ == '__main__':
         print("Continuing to start server...")
     
     # Create default superuser if configured
-    try:
-        execute_from_command_line(['manage.py', 'create_default_superuser'])
-        print("✓ Default superuser check completed")
-    except Exception as e:
-        print(f"⚠ Superuser creation skipped: {e}")
+    print("\n=== Superuser Configuration ===")
+    superuser_username = os.environ.get('DJANGO_SUPERUSER_USERNAME', 'admin')
+    superuser_email = os.environ.get('DJANGO_SUPERUSER_EMAIL', 'admin@ashwini.com')
+    superuser_password = os.environ.get('DJANGO_SUPERUSER_PASSWORD')
+    
+    print(f"Username: {superuser_username}")
+    print(f"Email: {superuser_email}")
+    print(f"Password set: {'Yes' if superuser_password else 'No'}")
+    
+    if not superuser_password:
+        print("⚠ WARNING: DJANGO_SUPERUSER_PASSWORD not set! Skipping superuser creation.")
+        print("Please set this environment variable in Render dashboard.")
+    else:
+        try:
+            print("Running superuser creation/update command...")
+            sys.stdout.flush()
+            execute_from_command_line(['manage.py', 'create_default_superuser'])
+            print("✓ Default superuser check completed")
+        except Exception as e:
+            print(f"⚠ Superuser creation error: {e}")
+            import traceback
+            traceback.print_exc()
+    print("==============================\n")
     
     application = get_wsgi_application()
     

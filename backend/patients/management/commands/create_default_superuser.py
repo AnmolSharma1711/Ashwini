@@ -28,6 +28,8 @@ class Command(BaseCommand):
         email = os.environ.get('DJANGO_SUPERUSER_EMAIL', 'admin@ashwini.com')
         password = os.environ.get('DJANGO_SUPERUSER_PASSWORD')
         
+        self.stdout.write(f"Attempting superuser setup for: {username}")
+        
         # Validate password
         if not password:
             self.stdout.write(
@@ -38,11 +40,14 @@ class Command(BaseCommand):
             )
             return
         
+        self.stdout.write(f"Password length: {len(password)} characters")
+        
         # Check if superuser already exists
         if User.objects.filter(username=username).exists():
             # Update existing superuser
             try:
                 user = User.objects.get(username=username)
+                self.stdout.write(f"Found existing user: {username}")
                 user.email = email
                 user.set_password(password)
                 user.is_superuser = True
@@ -50,17 +55,20 @@ class Command(BaseCommand):
                 user.save()
                 self.stdout.write(
                     self.style.SUCCESS(
-                        f'Superuser "{username}" already exists. Updated password and email to "{email}".'
+                        f'✓ Superuser "{username}" password updated successfully! Email: "{email}"'
                     )
                 )
             except Exception as e:
                 self.stdout.write(
                     self.style.ERROR(f'Error updating superuser: {str(e)}')
                 )
+                import traceback
+                self.stdout.write(traceback.format_exc())
             return
         
         # Create new superuser
         try:
+            self.stdout.write(f"Creating new superuser: {username}")
             User.objects.create_superuser(
                 username=username,
                 email=email,
@@ -68,10 +76,12 @@ class Command(BaseCommand):
             )
             self.stdout.write(
                 self.style.SUCCESS(
-                    f'Successfully created superuser "{username}" with email "{email}"'
+                    f'✓ Successfully created superuser "{username}" with email "{email}"'
                 )
             )
         except Exception as e:
             self.stdout.write(
                 self.style.ERROR(f'Error creating superuser: {str(e)}')
             )
+            import traceback
+            self.stdout.write(traceback.format_exc())
