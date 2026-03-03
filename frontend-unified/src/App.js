@@ -5,7 +5,6 @@ import Login from './components/Login';
 import RoleProtectedRoute from './components/RoleProtectedRoute';
 import PatientView from './components/PatientView';
 import { getPrioritizedPatients } from './api';
-import { startKeepAlive } from './services/keepAlive';
 import { logout, getCurrentUser, isAuthenticated } from './services/authService';
 
 function DoctorApp() {
@@ -30,7 +29,6 @@ function DoctorApp() {
 
   useEffect(() => {
     fetchPatients();
-    startKeepAlive();
     
     // Load current user
     if (isAuthenticated()) {

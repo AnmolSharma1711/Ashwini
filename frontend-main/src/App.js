@@ -6,17 +6,13 @@ import RoleProtectedRoute from './components/RoleProtectedRoute';
 import RegistrationDashboard from './components/RegistrationDashboard';
 import HealthMonitoringStation from './components/HealthMonitoringStation';
 import ReportAnalysis from './components/ReportAnalysis';
-import { startKeepAlive } from './services/keepAlive';
 import { logout, getCurrentUser, isAuthenticated } from './services/authService';
 
 function MainApp() {
   const [activeView, setActiveView] = useState('registration');
   const [user, setUser] = useState(null);
 
-  // Start keep-alive service to prevent backend from sleeping
   useEffect(() => {
-    startKeepAlive();
-    
     // Load current user
     if (isAuthenticated()) {
       const currentUser = getCurrentUser();
