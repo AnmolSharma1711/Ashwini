@@ -4,8 +4,14 @@
 
 set -e  # Exit on error
 
+# Change to backend directory if not already there
+if [ -d "backend" ]; then
+    cd backend
+fi
+
 echo "========================================"
 echo "Starting Ashwini Backend"
+echo "Current directory: $(pwd)"
 echo "========================================"
 
 # Run migrations
