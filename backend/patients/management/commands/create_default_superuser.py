@@ -1,5 +1,5 @@
 """
-Django management command to create a superuser from environment variables.
+Django management command to create or update a superuser from environment variables.
 
 Usage:
     python manage.py create_default_superuser
@@ -9,7 +9,7 @@ Environment Variables:
     DJANGO_SUPERUSER_EMAIL (default: admin@ashwini.com)
     DJANGO_SUPERUSER_PASSWORD (required for production)
 
-This command is idempotent - it won't create duplicate users.
+This command is idempotent - if the user exists, it updates the password and email.
 """
 
 import os
@@ -18,7 +18,7 @@ from django.contrib.auth import get_user_model
 
 
 class Command(BaseCommand):
-    help = 'Creates a superuser from environment variables if one does not exist'
+    help = 'Creates or updates a superuser from environment variables'
 
     def handle(self, *args, **options):
         User = get_user_model()
@@ -28,24 +28,38 @@ class Command(BaseCommand):
         email = os.environ.get('DJANGO_SUPERUSER_EMAIL', 'admin@ashwini.com')
         password = os.environ.get('DJANGO_SUPERUSER_PASSWORD')
         
-        # Check if superuser already exists
-        if User.objects.filter(username=username).exists():
-            self.stdout.write(
-                self.style.WARNING(f'Superuser "{username}" already exists. Skipping creation.')
-            )
-            return
-        
         # Validate password
         if not password:
             self.stdout.write(
                 self.style.ERROR(
                     'DJANGO_SUPERUSER_PASSWORD environment variable is not set. '
-                    'Cannot create superuser in production without a password.'
+                    'Cannot create/update superuser in production without a password.'
                 )
             )
             return
         
-        # Create superuser
+        # Check if superuser already exists
+        if User.objects.filter(username=username).exists():
+            # Update existing superuser
+            try:
+                user = User.objects.get(username=username)
+                user.email = email
+                user.set_password(password)
+                user.is_superuser = True
+                user.is_staff = True
+                user.save()
+                self.stdout.write(
+                    self.style.SUCCESS(
+                        f'Superuser "{username}" already exists. Updated password and email to "{email}".'
+                    )
+                )
+            except Exception as e:
+                self.stdout.write(
+                    self.style.ERROR(f'Error updating superuser: {str(e)}')
+                )
+            return
+        
+        # Create new superuser
         try:
             User.objects.create_superuser(
                 username=username,
