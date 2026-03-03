@@ -1,0 +1,54 @@
+"""
+Entry point for Render deployment
+This file runs the Django application using gunicorn and binds to the PORT provided by Render
+"""
+import os
+import sys
+from gunicorn.app.base import BaseApplication
+
+class DjangoApplication(BaseApplication):
+    def __init__(self, app, options=None):
+        self.options = options or {}
+        self.application = app
+        super().__init__()
+
+    def load_config(self):
+        config = {key: value for key, value in self.options.items()
+                  if key in self.cfg.settings and value is not None}
+        for key, value in config.items():
+            self.cfg.set(key.lower(), value)
+
+    def load(self):
+        return self.application
+
+if __name__ == '__main__':
+    # Get PORT from environment variable (Render provides this)
+    port = os.environ.get('PORT', '8000')
+    
+    # Set up Django
+    os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'ashwini_backend.settings')
+    
+    try:
+        from django.core.wsgi import get_wsgi_application
+    except ImportError as exc:
+        raise ImportError(
+            "Couldn't import Django. Are you sure it's installed and "
+            "available on your PYTHONPATH environment variable? Did you "
+            "forget to activate a virtual environment?"
+        ) from exc
+    
+    application = get_wsgi_application()
+    
+    # Gunicorn configuration
+    options = {
+        'bind': f'0.0.0.0:{port}',
+        'workers': 2,
+        'worker_class': 'sync',
+        'timeout': 120,
+        'accesslog': '-',
+        'errorlog': '-',
+        'loglevel': 'info',
+    }
+    
+    print(f"Starting Django application on 0.0.0.0:{port}")
+    DjangoApplication(application, options).run()

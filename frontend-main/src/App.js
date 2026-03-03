@@ -1,10 +1,16 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import 'bootstrap/dist/css/bootstrap.min.css';
 import RegistrationDashboard from './components/RegistrationDashboard';
 import HealthMonitoringStation from './components/HealthMonitoringStation';
+import { startKeepAlive } from './services/keepAlive';
 
 function App() {
   const [activeView, setActiveView] = useState('registration');
+
+  // Start keep-alive service to prevent backend from sleeping
+  useEffect(() => {
+    startKeepAlive();
+  }, []);
 
   return (
     <div className="App">

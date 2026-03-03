@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import 'bootstrap/dist/css/bootstrap.min.css';
 import PatientView from './components/PatientView';
 import { getPrioritizedPatients } from './api';
+import { startKeepAlive } from './services/keepAlive';
 
 function App() {
   const [patients, setPatients] = useState([]);
@@ -24,6 +25,8 @@ function App() {
 
   useEffect(() => {
     fetchPatients();
+    // Start keep-alive service to prevent backend from sleeping
+    startKeepAlive();
   }, []);
 
   const fetchPatients = async () => {

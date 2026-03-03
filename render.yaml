@@ -1,0 +1,12 @@
+services:
+  - type: web
+    name: ashwini-backend
+    runtime: python
+    buildCommand: cd backend && bash build.sh
+    startCommand: cd backend && python app.py
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.12
+      - key: DJANGO_SETTINGS_MODULE
+        value: ashwini_backend.settings
+    healthCheckPath: /api/health/
