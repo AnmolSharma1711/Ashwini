@@ -70,25 +70,22 @@ vercel --prod
 1. Users → Add User → Enter username/password → Save
 2. Edit user → Scroll to "Role & Access" → Select role → Save
 
-**Test Accounts:**
-
-| Username | Password | Role | Access |
-|----------|----------|------|--------|
-| admin | admin123 | ADMIN | Both portals |
-| dr_john | doctor123 | DOCTOR | Unified only |
-| nurse_mary | nurse123 | NURSE | Main only |
-| reception_jane | reception123 | RECEPTION | Main only |
+**Create Different User Roles:**
+- **ADMIN** - Can access both portals
+- **DOCTOR** - Can only access frontend-unified (Doctor's Portal)
+- **NURSE** - Can only access frontend-main (Registration Portal)
+- **RECEPTION** - Can only access frontend-main (Registration Portal)
 
 ---
 
 ## Testing Checklist
 
-- [ ] ✅ Login as `admin` to frontend-main → Success
-- [ ] ✅ Login as `admin` to frontend-unified → Success
-- [ ] ✅ Login as `dr_john` to frontend-unified → Success
-- [ ] ❌ Login as `dr_john` to frontend-main → Error
-- [ ] ✅ Login as `nurse_mary` to frontend-main → Success
-- [ ] ❌ Login as `nurse_mary` to frontend-unified → Error
+- [ ] ✅ Login as ADMIN to frontend-main → Success
+- [ ] ✅ Login as ADMIN to frontend-unified → Success
+- [ ] ✅ Login as DOCTOR to frontend-unified → Success
+- [ ] ❌ Login as DOCTOR to frontend-main → Error
+- [ ] ✅ Login as NURSE to frontend-main → Success
+- [ ] ❌ Login as NURSE to frontend-unified → Error
 - [ ] ✅ Logout clears localStorage
 - [ ] ✅ Token auto-refreshes (check Network tab)
 
@@ -108,7 +105,7 @@ POST   /api/auth/token/refresh/  # Refresh access token
 ```bash
 curl -X POST https://ashwini-backend.onrender.com/api/auth/login/ \
   -H "Content-Type: application/json" \
-  -d '{"username": "dr_john", "password": "doctor123"}'
+  -d '{"username": "your_username", "password": "your_password"}'
 ```
 
 **Response:**
@@ -118,10 +115,10 @@ curl -X POST https://ashwini-backend.onrender.com/api/auth/login/ \
   "refresh": "eyJ0eXAiOi...",
   "user": {
     "id": 2,
-    "username": "dr_john",
+    "username": "your_username",
     "role": "DOCTOR",
-    "first_name": "John",
-    "last_name": "Doe"
+    "first_name": "First",
+    "last_name": "Last"
   }
 }
 ```

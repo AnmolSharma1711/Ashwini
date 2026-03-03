@@ -21,9 +21,9 @@ python manage.py migrate
 
 # Create admin user
 python manage.py createsuperuser
-# Enter username: admin
-# Enter email: admin@example.com
-# Enter password: admin123 (or your choice)
+# Enter username: (your choice)
+# Enter email: (your email)
+# Enter password: (secure password)
 
 # Start backend server
 python manage.py runserver 0.0.0.0:8000
