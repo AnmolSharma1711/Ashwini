@@ -4,7 +4,7 @@ services:
     runtime: python
     plan: free  # Change to 'starter' or higher for production
     buildCommand: cd backend && bash build.sh
-    startCommand: cd backend && python app.py
+    startCommand: bash backend/start.sh
     envVars:
       - key: PYTHON_VERSION
         value: 3.11.12
