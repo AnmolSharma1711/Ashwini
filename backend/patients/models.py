@@ -43,6 +43,10 @@ class CustomUser(AbstractUser):
     def can_access_unified_portal(self):
         """Check if user can access frontend-unified (Doctor's portal)"""
         return self.role in ['ADMIN', 'DOCTOR']
+    
+    def can_access_patient_portal(self):
+        """Check if user can access frontend-patient (Patient portal)"""
+        return self.role == 'PATIENT'
 
 
 class Patient(models.Model):
@@ -54,6 +58,8 @@ class Patient(models.Model):
     - checking: Currently at Health Monitoring Station
     - examined: Vitals recorded, ready for doctor
     - completed: Doctor has finished consultation
+    
+    If linked to a CustomUser account, the patient can access the patient portal.
     """
     
     STATUS_CHOICES = [
@@ -68,6 +74,16 @@ class Patient(models.Model):
         ('Female', 'Female'),
         ('Other', 'Other'),
     ]
+    
+    # Link to user account (optional - for patient portal access)
+    user = models.OneToOneField(
+        CustomUser,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='patient_profile',
+        help_text="Link to patient's user account for portal access"
+    )
     
     # Basic Demographics
     name = models.CharField(max_length=200)

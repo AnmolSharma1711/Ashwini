@@ -22,6 +22,7 @@ urlpatterns = [
     path('api/', include('measurements.urls')),
     path('api/', include('devices.urls')),
     path('api/', include('reports.urls')),
+    path('api/patient-portal/', include('patients.patient_portal_urls')),  # Patient portal endpoints
 ]
 
 # Serve media files in development

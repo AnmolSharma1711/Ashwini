@@ -72,10 +72,58 @@ class PatientViewSet(viewsets.ModelViewSet):
     def create(self, request, *args, **kwargs):
         """
         Create a new patient and automatically create an empty prescription.
+        
+        If username, email, and password are provided, also creates a user account
+        for patient portal access.
         """
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        patient = serializer.save()
+        
+        # Check if user account credentials are provided
+        username = request.data.get('username')
+        email = request.data.get('email')
+        password = request.data.get('password')
+        
+        user = None
+        if username and email and password:
+            # Create user account for patient portal access
+            from .models import CustomUser
+            from .auth_serializers import UserRegistrationSerializer
+            from django.db import transaction
+            
+            # Extract name parts from patient name
+            name_parts = request.data.get('name', '').split(' ', 1)
+            first_name = name_parts[0] if len(name_parts) > 0 else ''
+            last_name = name_parts[1] if len(name_parts) > 1 else ''
+            
+            user_data = {
+                'username': username,
+                'email': email,
+                'password': password,
+                'password_confirm': password,  # Same as password
+                'first_name': first_name,
+                'last_name': last_name,
+                'role': 'PATIENT'
+            }
+            
+            try:
+                with transaction.atomic():
+                    user_serializer = UserRegistrationSerializer(data=user_data)
+                    if user_serializer.is_valid():
+                        user = user_serializer.save()
+                    else:
+                        return Response(
+                            {'error': 'User creation failed', 'details': user_serializer.errors},
+                            status=status.HTTP_400_BAD_REQUEST
+                        )
+            except Exception as e:
+                return Response(
+                    {'error': f'User account creation failed: {str(e)}'},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+        
+        # Save patient with optional user link
+        patient = serializer.save(user=user)
         
         # Automatically create an empty prescription for this patient
         Prescription.objects.create(patient=patient)

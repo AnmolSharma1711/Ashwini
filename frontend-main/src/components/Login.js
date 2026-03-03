@@ -24,7 +24,6 @@ const Login = () => {
 
         try {
             const user = await login(username, password);
-            console.log('Login successful:', user);
             
             // Redirect to the page they tried to visit or home
             navigate(from, { replace: true });

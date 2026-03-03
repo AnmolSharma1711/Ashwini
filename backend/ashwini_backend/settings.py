@@ -231,21 +231,30 @@ SIMPLE_JWT = {
 
 
 # CORS Configuration - Allow React frontends to communicate
-# Read allowed origins from environment for production; fall back to localhost for dev
-CORS_ALLOWED_ORIGINS_ENV = os.environ.get('CORS_ALLOWED_ORIGINS')
-if CORS_ALLOWED_ORIGINS_ENV:
-    CORS_ALLOWED_ORIGINS = [u.strip() for u in CORS_ALLOWED_ORIGINS_ENV.split(',') if u.strip()]
-else:
-    CORS_ALLOWED_ORIGINS = [
-        "http://localhost:3000",  # Unified Patient View Frontend (Doctor's Portal)
-        "http://localhost:4000",  # Main Frontend (Registration + Health Monitoring)
-        # Production URLs (update these with your actual Vercel URLs)
-        "https://frontend-main.vercel.app",
-        "https://frontend-unified.vercel.app",
-    ]
+# In production: MUST set CORS_ALLOWED_ORIGINS environment variable
+# In development: Localhost URLs are automatically allowed when DEBUG=True
 
-# Optionally allow all origins if explicitly enabled via env
-CORS_ALLOW_ALL_ORIGINS = os.environ.get('CORS_ALLOW_ALL_ORIGINS', 'False') == 'True'
+CORS_ALLOWED_ORIGINS_ENV = os.environ.get('CORS_ALLOWED_ORIGINS')
+
+if CORS_ALLOWED_ORIGINS_ENV:
+    # Production: Use environment variable (comma-separated URLs)
+    CORS_ALLOWED_ORIGINS = [url.strip() for url in CORS_ALLOWED_ORIGINS_ENV.split(',') if url.strip()]
+elif DEBUG:
+    # Development only: Allow localhost URLs
+    CORS_ALLOWED_ORIGINS = [
+        "http://localhost:3000",  # Doctor's Portal (frontend-unified)
+        "http://localhost:3001",  # Development alternate port
+        "http://localhost:3002",  # Patient Portal (frontend-patient)
+        "http://localhost:4000",  # Registration Portal (frontend-main)
+        "http://localhost:4001",  # Registration Portal alternate port
+    ]
+else:
+    # Production without CORS_ALLOWED_ORIGINS set: Empty list (secure default)
+    CORS_ALLOWED_ORIGINS = []
+    print("WARNING: CORS_ALLOWED_ORIGINS not set in production! Set this environment variable.")
+
+# Never allow all origins in production
+CORS_ALLOW_ALL_ORIGINS = False
 
 # Allow credentials for JWT authentication
 CORS_ALLOW_CREDENTIALS = True

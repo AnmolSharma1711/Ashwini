@@ -14,7 +14,11 @@ const RegistrationDashboard = () => {
     phone: '',
     address: '',
     reason: '',
+    username: '',
+    email: '',
+    password: '',
   });
+  const [showPasswordFields, setShowPasswordFields] = useState(false);
 
   const fetchPatients = useCallback(async () => {
     setLoading(true);
@@ -53,7 +57,11 @@ const RegistrationDashboard = () => {
         phone: '',
         address: '',
         reason: '',
+        username: '',
+        email: '',
+        password: '',
       });
+      setShowPasswordFields(false);
 
       // Refresh patient list
       fetchPatients();
@@ -162,8 +170,72 @@ const RegistrationDashboard = () => {
                     name="phone"
                     value={formData.phone}
                     onChange={handleInputChange}
+                    placeholder="Required for patient portal login"
                   />
                 </div>
+
+                {/* Patient Portal Account Setup */}
+                <div className="mb-3">
+                  <div className="form-check">
+                    <input
+                      className="form-check-input"
+                      type="checkbox"
+                      id="setupPortalAccount"
+                      checked={showPasswordFields}
+                      onChange={(e) => setShowPasswordFields(e.target.checked)}
+                    />
+                    <label className="form-check-label" htmlFor="setupPortalAccount">
+                      <strong>Setup Patient Portal Account</strong>
+                      <br />
+                      <small className="text-muted">Allow patient to view their records online</small>
+                    </label>
+                  </div>
+                </div>
+
+                {showPasswordFields && (
+                  <>
+                    <div className="mb-3">
+                      <label className="form-label">Username *</label>
+                      <input
+                        type="text"
+                        className="form-control"
+                        name="username"
+                        value={formData.username}
+                        onChange={handleInputChange}
+                        required={showPasswordFields}
+                        placeholder="For patient portal login"
+                      />
+                    </div>
+
+                    <div className="mb-3">
+                      <label className="form-label">Email *</label>
+                      <input
+                        type="email"
+                        className="form-control"
+                        name="email"
+                        value={formData.email}
+                        onChange={handleInputChange}
+                        required={showPasswordFields}
+                        placeholder="patient@example.com"
+                      />
+                    </div>
+
+                    <div className="mb-3">
+                      <label className="form-label">Password *</label>
+                      <input
+                        type="password"
+                        className="form-control"
+                        name="password"
+                        value={formData.password}
+                        onChange={handleInputChange}
+                        required={showPasswordFields}
+                        placeholder="Minimum 6 characters"
+                        minLength="6"
+                      />
+                      <small className="text-muted">Patient will use this to login to the portal</small>
+                    </div>
+                  </>
+                )}
 
                 <div className="mb-3">
                   <label className="form-label">Address</label>
