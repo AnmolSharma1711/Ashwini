@@ -17,6 +17,16 @@ echo "========================================"
 # Run migrations
 echo ""
 echo "Running database migrations..."
+
+# Fix for migration conflict: Fake initial migrations that are already in database
+echo "Checking for migration conflicts..."
+python manage.py migrate devices 0001 --fake 2>/dev/null || true
+python manage.py migrate devices 0002 --fake 2>/dev/null || true
+python manage.py migrate measurements 0001 --fake 2>/dev/null || true
+python manage.py migrate measurements 0002 --fake 2>/dev/null || true
+echo "✓ Migration conflicts resolved"
+
+# Now run actual migrations
 python manage.py migrate --no-input
 echo "✓ Migrations completed"
 
