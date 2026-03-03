@@ -68,9 +68,11 @@ export const isKeepAliveRunning = () => {
   return keepAliveInterval !== null;
 };
 
-export default {
+const keepAliveService = {
   startKeepAlive,
   stopKeepAlive,
   isKeepAliveRunning,
   pingBackend,
 };
+
+export default keepAliveService;

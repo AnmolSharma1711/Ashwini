@@ -8,6 +8,7 @@ from pathlib import Path
 import os
 import dj_database_url
 from dotenv import load_dotenv
+from datetime import timedelta
 
 # Load environment variables from .env file
 load_dotenv()
@@ -36,6 +37,9 @@ DEBUG = os.environ.get('DEBUG', 'True') == 'True'
 # Hosts: comma-separated list from env or default to allow all for quick deploys
 ALLOWED_HOSTS = os.environ.get('ALLOWED_HOSTS', '*').split(',')
 
+# Custom User Model
+AUTH_USER_MODEL = 'patients.CustomUser'
+
 
 # Application definition
 
@@ -49,6 +53,8 @@ INSTALLED_APPS = [
     
     # Third party apps
     'rest_framework',
+    'rest_framework_simplejwt',
+    'rest_framework_simplejwt.token_blacklist',
     'corsheaders',
     'cloudinary_storage',
     'cloudinary',
@@ -194,13 +200,33 @@ REST_FRAMEWORK = {
         'rest_framework.parsers.MultiPartParser',
         'rest_framework.parsers.FormParser',
     ],
-    # For future: Add authentication classes here
-    # 'DEFAULT_AUTHENTICATION_CLASSES': [
-    #     'rest_framework.authentication.TokenAuthentication',
-    # ],
-    # 'DEFAULT_PERMISSION_CLASSES': [
-    #     'rest_framework.permissions.IsAuthenticated',
-    # ],
+    'DEFAULT_AUTHENTICATION_CLASSES': [
+        'rest_framework_simplejwt.authentication.JWTAuthentication',
+        'rest_framework.authentication.SessionAuthentication',
+    ],
+    # Note: We don't set DEFAULT_PERMISSION_CLASSES globally
+    # Instead, we apply permissions per-view or per-viewset
+}
+
+# JWT Configuration
+SIMPLE_JWT = {
+    'ACCESS_TOKEN_LIFETIME': timedelta(hours=1),
+    'REFRESH_TOKEN_LIFETIME': timedelta(days=7),
+    'ROTATE_REFRESH_TOKENS': True,
+    'BLACKLIST_AFTER_ROTATION': True,
+    'UPDATE_LAST_LOGIN': True,
+    
+    'ALGORITHM': 'HS256',
+    'SIGNING_KEY': SECRET_KEY,
+    'VERIFYING_KEY': None,
+    
+    'AUTH_HEADER_TYPES': ('Bearer',),
+    'AUTH_HEADER_NAME': 'HTTP_AUTHORIZATION',
+    'USER_ID_FIELD': 'id',
+    'USER_ID_CLAIM': 'user_id',
+    
+    'AUTH_TOKEN_CLASSES': ('rest_framework_simplejwt.tokens.AccessToken',),
+    'TOKEN_TYPE_CLAIM': 'token_type',
 }
 
 
@@ -211,9 +237,29 @@ if CORS_ALLOWED_ORIGINS_ENV:
     CORS_ALLOWED_ORIGINS = [u.strip() for u in CORS_ALLOWED_ORIGINS_ENV.split(',') if u.strip()]
 else:
     CORS_ALLOWED_ORIGINS = [
-        "http://localhost:3000",  # Unified Patient View Frontend
+        "http://localhost:3000",  # Unified Patient View Frontend (Doctor's Portal)
         "http://localhost:4000",  # Main Frontend (Registration + Health Monitoring)
+        # Production URLs (update these with your actual Vercel URLs)
+        "https://frontend-main.vercel.app",
+        "https://frontend-unified.vercel.app",
     ]
 
 # Optionally allow all origins if explicitly enabled via env
 CORS_ALLOW_ALL_ORIGINS = os.environ.get('CORS_ALLOW_ALL_ORIGINS', 'False') == 'True'
+
+# Allow credentials for JWT authentication
+CORS_ALLOW_CREDENTIALS = True
+
+# Allow necessary headers for authentication and portal identification
+CORS_ALLOW_HEADERS = [
+    'accept',
+    'accept-encoding',
+    'authorization',
+    'content-type',
+    'dnt',
+    'origin',
+    'user-agent',
+    'x-csrftoken',
+    'x-requested-with',
+    'x-portal-source',  # Custom header for portal identification
+]

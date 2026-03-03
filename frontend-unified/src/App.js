@@ -1,14 +1,19 @@
 import React, { useState, useEffect } from 'react';
+import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import 'bootstrap/dist/css/bootstrap.min.css';
+import Login from './components/Login';
+import RoleProtectedRoute from './components/RoleProtectedRoute';
 import PatientView from './components/PatientView';
 import { getPrioritizedPatients } from './api';
 import { startKeepAlive } from './services/keepAlive';
+import { logout, getCurrentUser, isAuthenticated } from './services/authService';
 
-function App() {
+function DoctorApp() {
   const [patients, setPatients] = useState([]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState('all');
+  const [user, setUser] = useState(null);
 
   const getHealthBadge = (status) => {
     const badges = {
@@ -25,15 +30,19 @@ function App() {
 
   useEffect(() => {
     fetchPatients();
-    // Start keep-alive service to prevent backend from sleeping
     startKeepAlive();
+    
+    // Load current user
+    if (isAuthenticated()) {
+      const currentUser = getCurrentUser();
+      setUser(currentUser);
+    }
   }, []);
 
   const fetchPatients = async () => {
     setLoading(true);
     try {
       const response = await getPrioritizedPatients();
-      // Filter to show only patients that need doctor attention
       const relevantPatients = response.data.filter(
         p => ['waiting', 'checking', 'examined'].includes(p.status)
       );
@@ -49,129 +58,161 @@ function App() {
     }
   };
 
-  const handlePrevious = () => {
-    setCurrentIndex((prev) => (prev > 0 ? prev - 1 : patients.length - 1));
+  const handleNext = () => {
+    if (currentIndex < filteredPatients.length - 1) {
+      setCurrentIndex(currentIndex + 1);
+    }
   };
 
-  const handleNext = () => {
-    setCurrentIndex((prev) => (prev < patients.length - 1 ? prev + 1 : 0));
+  const handlePrevious = () => {
+    if (currentIndex > 0) {
+      setCurrentIndex(currentIndex - 1);
+    }
+  };
+
+  const handleLogout = async () => {
+    await logout();
+    window.location.href = '/login';
   };
 
   const filteredPatients = statusFilter === 'all' 
     ? patients 
     : patients.filter(p => p.health_status === statusFilter);
-  
+
   const currentPatient = filteredPatients[currentIndex];
+  const hasNext = currentIndex < filteredPatients.length - 1;
+  const hasPrevious = currentIndex > 0;
 
   return (
-    <div className="App">
-      <nav className="navbar navbar-dark bg-primary">
-        <div className="container-fluid">
-          <span className="navbar-brand mb-0 h1">
-            Project Ashwini - Doctor's Dashboard
-          </span>
-          <span className="text-white">
-            Patient {currentIndex + 1} of {filteredPatients.length}
-            {getCriticalCount() > 0 && (
-              <span className="ms-3 badge bg-danger">
-                ⚠️ {getCriticalCount()} Critical
-              </span>
-            )}
-            {getMildCount() > 0 && (
-              <span className="ms-2 badge bg-warning text-dark">
-                {getMildCount()} Need Attention
-              </span>
-            )}
-          </span>
+    <div className="container-fluid" style={{ height: '100vh', display: 'flex', flexDirection: 'column' }}>
+      {/* Header */}
+      <div className="row bg-primary text-white p-3">
+        <div className="col-12 d-flex justify-content-between align-items-center">
+          <div>
+            <h2 className="mb-0">🏥 Project Ashwini - Doctor's Portal</h2>
+            <small>Patient Queue Management System</small>
+          </div>
+          {user && (
+            <div className="text-end">
+              <div className="mb-1">
+                <strong>Dr. {user.first_name || user.username}</strong>
+              </div>
+              <button
+                className="btn btn-outline-light btn-sm"
+                onClick={handleLogout}
+              >
+                Logout
+              </button>
+            </div>
+          )}
         </div>
-      </nav>
+      </div>
 
-      <div className="container-fluid mt-3">
+      {/* Stats Bar */}
+      <div className="row bg-light border-bottom p-2">
+        <div className="col-12 d-flex justify-content-between align-items-center">
+          <div>
+            <span className="me-4">
+              <strong>Total Queue:</strong> {patients.length} patients
+            </span>
+            <span className="me-4">
+              {getHealthBadge('critical')} {getCriticalCount()}
+            </span>
+            <span className="me-4">
+              {getHealthBadge('mild')} {getMildCount()}
+            </span>
+          </div>
+          <div>
+            <select 
+              className="form-select form-select-sm" 
+              value={statusFilter}
+              onChange={(e) => {
+                setStatusFilter(e.target.value);
+                setCurrentIndex(0);
+              }}
+              style={{ width: 'auto', display: 'inline-block' }}
+            >
+              <option value="all">All Patients</option>
+              <option value="critical">Critical Only</option>
+              <option value="mild">Needs Attention</option>
+              <option value="normal">Stable</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      {/* Main Content */}
+      <div className="row flex-grow-1" style={{ overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
         {loading ? (
-          <div className="text-center mt-5">
-            <div className="spinner-border" role="status">
+          <div className="col-12 d-flex justify-content-center align-items-center" style={{ flex: 1 }}>
+            <div className="spinner-border text-primary" role="status">
               <span className="visually-hidden">Loading...</span>
             </div>
           </div>
-        ) : patients.length === 0 ? (
-          <div className="alert alert-info text-center mt-5">
-            <h4>No patients to review</h4>
-            <p>All patients have been completed or there are no active patients.</p>
+        ) : filteredPatients.length === 0 ? (
+          <div className="col-12 d-flex justify-content-center align-items-center" style={{ flex: 1 }}>
+            <div className="text-center">
+              <h3>No patients in queue</h3>
+              <p className="text-muted">All patients have been examined</p>
+            </div>
           </div>
         ) : (
           <>
-            {/* Health Status Filter */}
-            <div className="btn-group mb-3 d-flex" role="group">
-              <button
-                className={`btn ${statusFilter === 'all' ? 'btn-primary' : 'btn-outline-primary'}`}
-                onClick={() => { setStatusFilter('all'); setCurrentIndex(0); }}
-              >
-                All ({patients.length})
-              </button>
-              <button
-                className={`btn ${statusFilter === 'critical' ? 'btn-danger' : 'btn-outline-danger'}`}
-                onClick={() => { setStatusFilter('critical'); setCurrentIndex(0); }}
-              >
-                Critical ({getCriticalCount()})
-              </button>
-              <button
-                className={`btn ${statusFilter === 'mild' ? 'btn-warning' : 'btn-outline-warning'}`}
-                onClick={() => { setStatusFilter('mild'); setCurrentIndex(0); }}
-              >
-                Needs Attention ({getMildCount()})
-              </button>
-              <button
-                className={`btn ${statusFilter === 'normal' ? 'btn-success' : 'btn-outline-success'}`}
-                onClick={() => { setStatusFilter('normal'); setCurrentIndex(0); }}
-              >
-                Stable ({patients.filter(p => p.health_status === 'normal').length})
-              </button>
-            </div>
             {/* Navigation Controls */}
-            {/* Current Patient Health Badge */}
-            {currentPatient && (
-              <div className="alert alert-light border mb-3 d-flex justify-content-between align-items-center">
-                <div>
-                  <strong>{currentPatient.name}</strong> ({currentPatient.age}y, {currentPatient.gender})
-                </div>
-                {getHealthBadge(currentPatient.health_status)}
+            <div className="col-12 p-3 bg-light border-bottom" style={{ flexShrink: 0 }}>
+              <div className="d-flex justify-content-between align-items-center">
+                <button
+                  className="btn btn-outline-primary"
+                  onClick={handlePrevious}
+                  disabled={!hasPrevious}
+                >
+                  ← Previous Patient
+                </button>
+                <span className="badge bg-primary fs-6">
+                  Patient {currentIndex + 1} of {filteredPatients.length}
+                </span>
+                <button
+                  className="btn btn-outline-primary"
+                  onClick={handleNext}
+                  disabled={!hasNext}
+                >
+                  Next Patient →
+                </button>
               </div>
-            )}
-
-            <div className="d-flex justify-content-between mb-3">
-              <button
-                className="btn btn-outline-primary"
-                onClick={handlePrevious}
-                disabled={filteredPatients.length <= 1}
-              >
-                ← Previous Patient
-              </button>
-              <button
-                className="btn btn-primary"
-                onClick={fetchPatients}
-              >
-                🔄 Refresh
-              </button>
-              <button
-                className="btn btn-outline-primary"
-                onClick={handleNext}
-                disabled={filteredPatients.length <= 1}
-              >
-                Next Patient →
-              </button>
             </div>
-
-            {/* Patient View Component */}
-            {currentPatient && (
-              <PatientView
+            
+            {/* Patient Details */}
+            <div className="col-12" style={{ flex: 1, overflowY: 'auto', overflowX: 'hidden' }}>
+              <PatientView 
                 patientId={currentPatient.id}
                 onUpdate={fetchPatients}
               />
-            )}
+            </div>
           </>
         )}
       </div>
     </div>
+  );
+}
+
+function App() {
+  return (
+    <Router>
+      <Routes>
+        {/* Public route */}
+        <Route path="/login" element={<Login />} />
+        
+        {/* Protected routes */}
+        <Route 
+          path="/*" 
+          element={
+            <RoleProtectedRoute>
+              <DoctorApp />
+            </RoleProtectedRoute>
+          } 
+        />
+      </Routes>
+    </Router>
   );
 }
 
