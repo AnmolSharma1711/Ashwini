@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { getPatientReports, getReportAnalysis, uploadReport, getPatients, getPatient } from "../api";
@@ -14,14 +14,23 @@ const ReportAnalysis = () => {
 	const [uploadingReport, setUploadingReport] = useState(false);
 	const [selectedFile, setSelectedFile] = useState(null);
 
-	const showMessage = (type, text) => {
+	const showMessage = useCallback((type, text) => {
 		setMessage({ type, text });
 		setTimeout(() => setMessage({ type: "", text: "" }), 5000);
-	};
+	}, []);
+
+	const loadPatients = useCallback(async () => {
+		try {
+			const response = await getPatients();
+			setPatients(response.data);
+		} catch (error) {
+			showMessage("error", "Failed to load patients");
+		}
+	}, [showMessage]);
 
 	useEffect(() => {
 		loadPatients();
-	}, []);
+	}, [loadPatients]);
 
 	useEffect(() => {
 		if (selectedPatient) {
@@ -29,15 +38,6 @@ const ReportAnalysis = () => {
 		}
 		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [selectedPatient]);
-
-	const loadPatients = async () => {
-		try {
-			const response = await getPatients();
-			setPatients(response.data);
-		} catch (error) {
-			showMessage("error", "Failed to load patients");
-		}
-	};
 
 	const loadPatientDetails = async (patientId) => {
 		try {

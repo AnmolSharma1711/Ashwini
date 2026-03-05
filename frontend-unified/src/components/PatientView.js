@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { getPatient, updatePatient, updatePrescription, getPatientReports, getReportAnalysis } from '../api';
@@ -22,7 +22,34 @@ const PatientView = ({ patientId, onUpdate }) => {
     quantity: 'Full',
   });
 
-  const fetchPatientDetails = async () => {
+  const showMessage = useCallback((type, text) => {
+    setMessage({ type, text });
+    setTimeout(() => setMessage({ type: '', text: '' }), 5000);
+  }, []);
+
+  const handleReportSelect = useCallback(async (reportId) => {
+    try {
+      const response = await getReportAnalysis(reportId);
+      setSelectedReport(response.data);
+    } catch (error) {
+      showMessage('error', 'Failed to load report analysis');
+    }
+  }, [showMessage]);
+
+  const fetchPatientReports = useCallback(async () => {
+    try {
+      const response = await getPatientReports(patientId);
+      setReports(response.data);
+      if (response.data.length > 0) {
+        handleReportSelect(response.data[0].id);
+      }
+    } catch (error) {
+      // Reports are optional, don't show error if none exist
+      setReports([]);
+    }
+  }, [patientId, handleReportSelect]);
+
+  const fetchPatientDetails = useCallback(async () => {
     setLoading(true);
     try {
       const response = await getPatient(patientId);
@@ -36,37 +63,14 @@ const PatientView = ({ patientId, onUpdate }) => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [patientId, showMessage]);
 
   useEffect(() => {
     if (patientId) {
       fetchPatientDetails();
       fetchPatientReports();
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [patientId]);
-
-  const fetchPatientReports = async () => {
-    try {
-      const response = await getPatientReports(patientId);
-      setReports(response.data);
-      if (response.data.length > 0) {
-        handleReportSelect(response.data[0].id);
-      }
-    } catch (error) {
-      // Reports are optional, don't show error if none exist
-      setReports([]);
-    }
-  };
-
-  const handleReportSelect = async (reportId) => {
-    try {
-      const response = await getReportAnalysis(reportId);
-      setSelectedReport(response.data);
-    } catch (error) {
-      showMessage('error', 'Failed to load report analysis');
-    }
-  };
+  }, [patientId, fetchPatientDetails, fetchPatientReports]);
 
   const getStatusBadgeClass = (status) => {
     switch (status) {
@@ -149,11 +153,6 @@ const PatientView = ({ patientId, onUpdate }) => {
     } finally {
       setLoading(false);
     }
-  };
-
-  const showMessage = (type, text) => {
-    setMessage({ type, text });
-    setTimeout(() => setMessage({ type: '', text: '' }), 5000);
   };
 
   if (loading && !patient) {

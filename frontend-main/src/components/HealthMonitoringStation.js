@@ -26,12 +26,12 @@ const HealthMonitoringStation = () => {
 		heart_rate: "",
 	});
 
-	const showMessage = (type, text) => {
+	const showMessage = useCallback((type, text) => {
 		setMessage({ type, text });
 		setTimeout(() => setMessage({ type: "", text: "" }), 5000);
-	};
+	}, []);
 
-	const loadPatientDetails = async (patientId) => {
+	const loadPatientDetails = useCallback(async (patientId) => {
 		setLoading(true);
 		try {
 			const response = await getPatient(patientId);
@@ -41,7 +41,16 @@ const HealthMonitoringStation = () => {
 		} finally {
 			setLoading(false);
 		}
-	};
+	}, [showMessage]);
+
+	const fetchLatestMeasurement = useCallback(async (patientId) => {
+		try {
+			const response = await getLatestMeasurement(patientId);
+			setLatestMeasurement(response.data);
+		} catch (error) {
+			setLatestMeasurement(null);
+		}
+	}, []);
 
 	const fetchPatientsForMonitoring = useCallback(async () => {
 		try {
@@ -64,8 +73,7 @@ const HealthMonitoringStation = () => {
 		} catch (error) {
 			showMessage("error", "Failed to fetch patients");
 		}
-		// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, []);
+	}, [loadPatientDetails, showMessage]);
 
 	useEffect(() => {
 		fetchPatientsForMonitoring();
@@ -75,17 +83,7 @@ const HealthMonitoringStation = () => {
 		if (selectedPatient) {
 			fetchLatestMeasurement(selectedPatient.id);
 		}
-		// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, [selectedPatient]);
-
-	const fetchLatestMeasurement = async (patientId) => {
-		try {
-			const response = await getLatestMeasurement(patientId);
-			setLatestMeasurement(response.data);
-		} catch (error) {
-			setLatestMeasurement(null);
-		}
-	};
+	}, [selectedPatient, fetchLatestMeasurement]);
 
 	const handlePatientSelect = (e) => {
 		const patientId = parseInt(e.target.value);
