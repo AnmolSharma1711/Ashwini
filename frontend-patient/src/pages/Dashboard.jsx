@@ -13,6 +13,13 @@ const Dashboard = () => {
 
   useEffect(() => {
     fetchDashboardData();
+    
+    // Auto-refresh data every 10 seconds
+    const interval = setInterval(() => {
+      fetchDashboardData();
+    }, 10000); // 10 seconds
+    
+    return () => clearInterval(interval); // Cleanup on unmount
   }, []);
 
   const fetchDashboardData = async () => {
@@ -31,7 +38,9 @@ const Dashboard = () => {
     } catch (error) {
       console.error('Error fetching dashboard data:', error);
     } finally {
-      setLoading(false);
+      if (loading) {
+        setLoading(false);
+      }
     }
   };
 
@@ -77,6 +86,7 @@ const Dashboard = () => {
           <Link to="/measurements" className="nav-link">Vitals</Link>
           <Link to="/prescription" className="nav-link">Prescription</Link>
           <Link to="/visits" className="nav-link">Visits</Link>
+          <Link to="/health-progress" className="nav-link">Health Progress</Link>
           <button onClick={logout} className="btn btn-outline">Logout</button>
         </div>
       </nav>
@@ -128,6 +138,18 @@ const Dashboard = () => {
               </p>
             </div>
           </div>
+
+          <div className="stat-card stat-card-appointment">
+            <div className="stat-icon-circle" style={{ background: '#f59e0b20', color: '#f59e0b' }}>
+              📅
+            </div>
+            <div className="stat-content">
+              <h3>Next Appointment</h3>
+              <p className="stat-value" style={{ color: '#f59e0b', fontSize: '1rem' }}>
+                {profile?.next_visit_date ? new Date(profile.next_visit_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : 'Not Scheduled'}
+              </p>
+            </div>
+          </div>
         </div>
 
         <div className="dashboard-grid">
@@ -137,7 +159,7 @@ const Dashboard = () => {
                 <h2>💓 Latest Vitals</h2>
                 {latestMeasurement && (
                   <p className="text-muted" style={{ fontSize: '0.85rem', marginTop: '0.25rem' }}>
-                    Recorded {new Date(latestMeasurement.measurement_time).toLocaleString()}
+                    Recorded {new Date(latestMeasurement.timestamp).toLocaleString()}
                   </p>
                 )}
               </div>
@@ -250,6 +272,45 @@ const Dashboard = () => {
             </div>
           )}
           <Link to="/visits" className="btn btn-primary" style={{ marginTop: '1.5rem', width: '100%' }}>View Visit History →</Link>
+        </div>
+
+        {/* Health Progress Card */}
+        <div className="card card-health-progress" style={{ 
+          background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', 
+          color: 'white',
+          gridColumn: 'span 1'
+        }}>
+          <div className="card-header-with-icon">
+            <h2 style={{ color: 'white' }}>📈 Health Progress & Trends</h2>
+          </div>
+          <div style={{ padding: '1rem 0' }}>
+            <p style={{ fontSize: '0.95rem', marginBottom: '1rem', opacity: 0.95 }}>
+              Track your health journey with detailed charts and analysis
+            </p>
+            <div className="info-row-modern" style={{ background: 'rgba(255, 255, 255, 0.1)', borderRadius: '8px', padding: '12px', marginBottom: '10px' }}>
+              <div className="info-icon">📊</div>
+              <div className="info-details">
+                <span className="info-label" style={{ color: 'rgba(255, 255, 255, 0.9)' }}>Total Measurements</span>
+                <span className="info-value" style={{ color: 'white' }}>{measurements.length} records</span>
+              </div>
+            </div>
+            <div className="info-row-modern" style={{ background: 'rgba(255, 255, 255, 0.1)', borderRadius: '8px', padding: '12px', marginBottom: '10px' }}>
+              <div className="info-icon">📉</div>
+              <div className="info-details">
+                <span className="info-label" style={{ color: 'rgba(255, 255, 255, 0.9)' }}>Visualizations</span>
+                <span className="info-value" style={{ color: 'white' }}>BP, Heart Rate, Temp, SpO2</span>
+              </div>
+            </div>
+            <Link to="/health-progress" className="btn" style={{ 
+              marginTop: '1.5rem', 
+              width: '100%',
+              background: 'white',
+              color: '#667eea',
+              fontWeight: '600'
+            }}>
+              View Health Progress →
+            </Link>
+          </div>
         </div>
       </div>
     </div>

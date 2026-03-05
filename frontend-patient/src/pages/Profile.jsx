@@ -10,6 +10,13 @@ const Profile = () => {
 
   useEffect(() => {
     fetchProfile();
+    
+    // Auto-refresh profile every 10 seconds
+    const interval = setInterval(() => {
+      fetchProfile();
+    }, 10000); // 10 seconds
+    
+    return () => clearInterval(interval); // Cleanup on unmount
   }, []);
 
   const fetchProfile = async () => {
@@ -19,7 +26,9 @@ const Profile = () => {
     } catch (error) {
       console.error('Error fetching profile:', error);
     } finally {
-      setLoading(false);
+      if (loading) {
+        setLoading(false);
+      }
     }
   };
 
@@ -39,6 +48,7 @@ const Profile = () => {
           <Link to="/measurements" className="nav-link">Vitals</Link>
           <Link to="/prescription" className="nav-link">Prescription</Link>
           <Link to="/visits" className="nav-link">Visits</Link>
+          <Link to="/health-progress" className="nav-link">Health Progress</Link>
           <button onClick={logout} className="btn btn-outline">Logout</button>
         </div>
       </nav>

@@ -1,5 +1,17 @@
 from django.contrib import admin
-from .models import Prescription
+from .models import Prescription, PrescriptionHistory
+
+
+@admin.register(PrescriptionHistory)
+class PrescriptionHistoryAdmin(admin.ModelAdmin):
+    list_display = ['patient', 'created_at', 'visit_date', 'get_medicine_count']
+    list_filter = ['created_at', 'visit_date']
+    search_fields = ['patient__name']
+    ordering = ['-created_at']
+    
+    def get_medicine_count(self, obj):
+        return len(obj.medicines) if obj.medicines else 0
+    get_medicine_count.short_description = 'Number of Medicines'
 
 
 @admin.register(Prescription)

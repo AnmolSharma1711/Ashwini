@@ -214,3 +214,30 @@ class Patient(models.Model):
         
         self.last_assessment_time = timezone.now()
         self.save()
+
+
+class VisitHistory(models.Model):
+    """
+    Archive of patient visit history to track all previous visits.
+    When a patient returns, their current visit data is archived here.
+    """
+    patient = models.ForeignKey(
+        Patient,
+        on_delete=models.CASCADE,
+        related_name='visit_history'
+    )
+    visit_time = models.DateTimeField()
+    reason = models.TextField(blank=True, null=True)
+    status = models.CharField(max_length=20)
+    health_status = models.CharField(max_length=20)
+    notes = models.TextField(blank=True, null=True)
+    next_visit_date = models.DateField(blank=True, null=True)
+    archived_at = models.DateTimeField(auto_now_add=True)
+    
+    class Meta:
+        ordering = ['-visit_time']
+        verbose_name = 'Visit History'
+        verbose_name_plural = 'Visit Histories'
+    
+    def __str__(self):
+        return f"{self.patient.name} - {self.visit_time.strftime('%Y-%m-%d %H:%M')}"

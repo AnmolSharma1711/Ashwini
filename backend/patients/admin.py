@@ -1,6 +1,6 @@
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin
-from .models import CustomUser, Patient
+from .models import CustomUser, Patient, VisitHistory
 
 
 @admin.register(CustomUser)
@@ -45,3 +45,12 @@ class PatientAdmin(admin.ModelAdmin):
     )
     
     readonly_fields = ['visit_time']
+
+
+@admin.register(VisitHistory)
+class VisitHistoryAdmin(admin.ModelAdmin):
+    list_display = ['id', 'patient', 'visit_time', 'status', 'health_status', 'archived_at']
+    list_filter = ['status', 'health_status', 'visit_time']
+    search_fields = ['patient__name', 'reason', 'notes']
+    ordering = ['-visit_time']
+    readonly_fields = ['archived_at']

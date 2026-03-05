@@ -8,6 +8,7 @@ from .patient_portal_views import (
     patient_profile_view,
     patient_measurements_view,
     patient_prescription_view,
+    patient_prescription_history_view,
     patient_visits_view
 )
 
@@ -19,5 +20,6 @@ urlpatterns = [
     path('profile/', patient_profile_view, name='patient-profile'),
     path('measurements/', patient_measurements_view, name='patient-measurements'),
     path('prescription/', patient_prescription_view, name='patient-prescription'),
+    path('prescription-history/', patient_prescription_history_view, name='patient-prescription-history'),
     path('visits/', patient_visits_view, name='patient-visits'),
 ]

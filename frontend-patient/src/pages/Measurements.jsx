@@ -10,6 +10,13 @@ const Measurements = () => {
 
   useEffect(() => {
     fetchMeasurements();
+    
+    // Auto-refresh measurements every 10 seconds
+    const interval = setInterval(() => {
+      fetchMeasurements();
+    }, 10000); // 10 seconds
+    
+    return () => clearInterval(interval); // Cleanup on unmount
   }, []);
 
   const fetchMeasurements = async () => {
@@ -19,7 +26,9 @@ const Measurements = () => {
     } catch (error) {
       console.error('Error fetching measurements:', error);
     } finally {
-      setLoading(false);
+      if (loading) {
+        setLoading(false);
+      }
     }
   };
 
@@ -39,6 +48,7 @@ const Measurements = () => {
           <Link to="/measurements" className="nav-link active">Vitals</Link>
           <Link to="/prescription" className="nav-link">Prescription</Link>
           <Link to="/visits" className="nav-link">Visits</Link>
+          <Link to="/health-progress" className="nav-link">Health Progress</Link>
           <button onClick={logout} className="btn btn-outline">Logout</button>
         </div>
       </nav>

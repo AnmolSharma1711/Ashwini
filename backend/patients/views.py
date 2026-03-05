@@ -2,6 +2,7 @@ from rest_framework import viewsets, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from django.shortcuts import get_object_or_404
+from django.utils import timezone
 
 from .models import Patient
 from .serializers import (
@@ -71,11 +72,137 @@ class PatientViewSet(viewsets.ModelViewSet):
     
     def create(self, request, *args, **kwargs):
         """
-        Create a new patient and automatically create an empty prescription.
+        Register a patient for a new visit.
         
-        If username, email, and password are provided, also creates a user account
-        for patient portal access.
+        - If patient exists (by name + phone number): Update visit information and reset status
+        - If patient is new: Create new patient record
+        - Preserves user account, measurements, and prescription history
+        - Uses name + phone combination to identify patients (family members can share phone)
         """
+        try:
+            phone = request.data.get('phone')
+            name = request.data.get('name')
+            
+            # Check if patient already exists by name AND phone number
+            existing_patient = None
+            if phone and name:
+                existing_patient = Patient.objects.filter(phone=phone, name=name).first()
+        except Exception as e:
+            print(f"Error checking for existing patient: {str(e)}")
+            import traceback
+            traceback.print_exc()
+            return Response({
+                'error': 'Failed to check patient records',
+                'detail': str(e)
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        
+        if existing_patient:
+            # Archive current visit to history before updating
+            from .models import VisitHistory
+            if existing_patient.visit_time:  # Only archive if there was a previous visit
+                try:
+                    VisitHistory.objects.create(
+                        patient=existing_patient,
+                        visit_time=existing_patient.visit_time,
+                        reason=existing_patient.reason or '',
+                        status=existing_patient.status or 'waiting',
+                        health_status=existing_patient.health_status or 'unknown',
+                        notes=existing_patient.notes or '',
+                        next_visit_date=existing_patient.next_visit_date
+                    )
+                except Exception as e:
+                    # Log error but don't fail registration
+                    print(f"Warning: Could not archive visit history: {str(e)}")
+            
+            # Patient is returning - update visit information
+            # Note: name and phone are used to identify patient, so they don't change
+            try:
+                # Handle age - only update if valid
+                age = request.data.get('age')
+                if age is not None:
+                    if isinstance(age, str):
+                        age = age.strip()
+                    if age and age != '':
+                        try:
+                            existing_patient.age = int(age)
+                        except (ValueError, TypeError):
+                            pass  # Keep existing age if conversion fails
+                
+                # Update other fields
+                gender = request.data.get('gender')
+                if gender:
+                    existing_patient.gender = gender
+                
+                address = request.data.get('address')
+                if address:
+                    existing_patient.address = address
+                
+                existing_patient.reason = request.data.get('reason', '')
+                existing_patient.status = 'waiting'  # Reset status for new visit
+                existing_patient.notes = ''  # Clear previous visit notes
+                existing_patient.visit_time = timezone.now()  # New visit time
+            except Exception as e:
+                print(f"Error updating patient fields: {str(e)}")
+                import traceback
+                traceback.print_exc()
+            
+            # Create user account if credentials provided and patient doesn't have one
+            username = request.data.get('username')
+            email = request.data.get('email')
+            password = request.data.get('password')
+            
+            if username and email and password and not existing_patient.user:
+                from .models import CustomUser
+                from .auth_serializers import UserRegistrationSerializer
+                from django.db import transaction
+                
+                name_parts = existing_patient.name.split(' ', 1)
+                first_name = name_parts[0] if len(name_parts) > 0 else ''
+                last_name = name_parts[1] if len(name_parts) > 1 else ''
+                
+                user_data = {
+                    'username': username,
+                    'email': email,
+                    'password': password,
+                    'password_confirm': password,
+                    'first_name': first_name,
+                    'last_name': last_name,
+                    'role': 'PATIENT'
+                }
+                
+                try:
+                    with transaction.atomic():
+                        user_serializer = UserRegistrationSerializer(data=user_data)
+                        if user_serializer.is_valid():
+                            existing_patient.user = user_serializer.save()
+                        # Silently ignore user creation errors for returning patients
+                except Exception:
+                    pass  # Patient can still check in without portal access
+            
+            try:
+                existing_patient.save()
+            except Exception as e:
+                print(f"Error saving existing patient: {str(e)}")
+                import traceback
+                traceback.print_exc()
+                return Response({
+                    'error': 'Failed to save patient data',
+                    'detail': str(e)
+                }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+            
+            # Ensure prescription exists
+            if not hasattr(existing_patient, 'prescription'):
+                Prescription.objects.create(patient=existing_patient)
+            
+            serializer = PatientDetailSerializer(existing_patient)
+            return Response({
+                'message': 'Returning patient checked in successfully',
+                'patient': serializer.data,
+                'is_returning': True,
+                'username': existing_patient.user.username if existing_patient.user else None
+            }, status=status.HTTP_200_OK)
+        
+        # New patient - proceed with creation
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         
@@ -186,7 +313,32 @@ class PatientViewSet(viewsets.ModelViewSet):
             return Response(serializer.data)
         
         elif request.method == 'PUT':
+            # Archive current prescription to history before updating
+            if prescription.medicines:  # Only archive if there are existing medicines
+                from prescriptions.models import PrescriptionHistory
+                PrescriptionHistory.objects.create(
+                    patient=patient,
+                    medicines=prescription.medicines,
+                    visit_date=patient.visit_time
+                )
+            
             serializer = PrescriptionSerializer(prescription, data=request.data, partial=True)
             serializer.is_valid(raise_exception=True)
             serializer.save()
             return Response(serializer.data)
+    
+    @action(detail=True, methods=['get'], url_path='prescription-history')
+    def prescription_history(self, request, pk=None):
+        """
+        Get patient's prescription history for comparison with past visits.
+        
+        GET /api/patients/<id>/prescription-history/
+        Returns: [ { "id": 1, "medicines": [...], "created_at": "...", "visit_date": "..." }, ... ]
+        """
+        from prescriptions.models import PrescriptionHistory
+        from prescriptions.serializers import PrescriptionHistorySerializer
+        
+        patient = self.get_object()
+        history = PrescriptionHistory.objects.filter(patient=patient)
+        serializer = PrescriptionHistorySerializer(history, many=True)
+        return Response(serializer.data)

@@ -9,11 +9,17 @@ import Profile from './pages/Profile';
 import Measurements from './pages/Measurements';
 import Prescription from './pages/Prescription';
 import Visits from './pages/Visits';
+import HealthProgress from './components/HealthProgress';
 
 function App() {
   return (
     <AuthProvider>
-      <BrowserRouter>
+      <BrowserRouter
+        future={{
+          v7_startTransition: true,
+          v7_relativeSplatPath: true,
+        }}
+      >
         <Routes>
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
@@ -54,6 +60,14 @@ function App() {
             element={
               <PrivateRoute>
                 <Visits />
+              </PrivateRoute>
+            }
+          />
+          <Route
+            path="/health-progress"
+            element={
+              <PrivateRoute>
+                <HealthProgress />
               </PrivateRoute>
             }
           />

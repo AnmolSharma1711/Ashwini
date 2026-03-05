@@ -2,6 +2,33 @@ from django.db import models
 from patients.models import Patient
 
 
+class PrescriptionHistory(models.Model):
+    """
+    Historical record of prescriptions for comparison with past visits.
+    
+    Stores a snapshot of the prescription whenever it's updated.
+    Patients can view their prescription history to compare medications
+    across different visits.
+    """
+    
+    patient = models.ForeignKey(
+        Patient,
+        on_delete=models.CASCADE,
+        related_name='prescription_history'
+    )
+    medicines = models.JSONField(default=list, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    visit_date = models.DateTimeField(null=True, blank=True)
+    
+    class Meta:
+        ordering = ['-created_at']
+        verbose_name = 'Prescription History'
+        verbose_name_plural = 'Prescription Histories'
+    
+    def __str__(self):
+        return f"Prescription for {self.patient.name} on {self.created_at.strftime('%Y-%m-%d %H:%M')}"
+
+
 class Prescription(models.Model):
     """
     Prescription model - one-to-one relationship with Patient.

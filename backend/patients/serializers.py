@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Patient
+from .models import Patient, VisitHistory
 from prescriptions.models import Prescription
 from measurements.models import Measurement
 
@@ -72,3 +72,35 @@ class PatientCreateUpdateSerializer(serializers.ModelSerializer):
             'status', 'notes', 'next_visit_date'
         ]
         read_only_fields = ['id']
+    
+    def validate_age(self, value):
+        """Validate age field - reject empty strings and invalid values."""
+        if value is None:
+            raise serializers.ValidationError("Age is required.")
+        
+        if isinstance(value, str):
+            value = value.strip()
+            if not value:
+                raise serializers.ValidationError("Age cannot be empty.")
+            try:
+                value = int(value)
+            except ValueError:
+                raise serializers.ValidationError("Age must be a valid number.")
+        
+        if value < 0 or value > 150:
+            raise serializers.ValidationError("Age must be between 0 and 150.")
+        
+        return value
+
+
+class VisitHistorySerializer(serializers.ModelSerializer):
+    """Serializer for visit history records."""
+    
+    patient_name = serializers.CharField(source='patient.name', read_only=True)
+    
+    class Meta:
+        model = VisitHistory
+        fields = [
+            'id', 'patient_name', 'visit_time', 'reason', 'status',
+            'health_status', 'notes', 'next_visit_date', 'archived_at'
+        ]

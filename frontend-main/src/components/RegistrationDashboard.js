@@ -5,6 +5,8 @@ const RegistrationDashboard = () => {
   const [patients, setPatients] = useState([]);
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState({ type: '', text: '' });
+  const [patientType, setPatientType] = useState('new'); // 'new' or 'returning'
+  const [returningPatientFound, setReturningPatientFound] = useState(null);
 
   // Form state
   const [formData, setFormData] = useState({
@@ -18,7 +20,6 @@ const RegistrationDashboard = () => {
     email: '',
     password: '',
   });
-  const [showPasswordFields, setShowPasswordFields] = useState(false);
 
   const fetchPatients = useCallback(async () => {
     setLoading(true);
@@ -38,16 +39,52 @@ const RegistrationDashboard = () => {
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
-    setFormData({ ...formData, [name]: value });
+    
+    // Auto-generate username from patient name
+    if (name === 'name') {
+      const username = value.toLowerCase().replace(/\s+/g, '');
+      setFormData({ ...formData, name: value, username: username });
+    } else {
+      setFormData({ ...formData, [name]: value });
+    }
+  };
+
+  const handlePatientTypeChange = (type) => {
+    setPatientType(type);
+    setReturningPatientFound(null);
+    setFormData({
+      name: '',
+      age: '',
+      gender: 'Male',
+      phone: '',
+      address: '',
+      reason: '',
+      username: '',
+      email: '',
+      password: '',
+    });
+    setMessage({ type: '', text: '' });
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
+    setReturningPatientFound(null);
 
     try {
-      await createPatient(formData);
-      showMessage('success', 'Patient registered successfully!');
+      const response = await createPatient(formData);
+      
+      // Check if this was a returning patient
+      if (response.data.is_returning) {
+        setReturningPatientFound({
+          found: true,
+          patient: response.data.patient,
+          username: response.data.username
+        });
+        showMessage('success', `Welcome back! ${response.data.message}`);
+      } else {
+        showMessage('success', 'New patient registered successfully!');
+      }
       
       // Reset form
       setFormData({
@@ -61,7 +98,6 @@ const RegistrationDashboard = () => {
         email: '',
         password: '',
       });
-      setShowPasswordFields(false);
 
       // Refresh patient list
       fetchPatients();
@@ -118,10 +154,65 @@ const RegistrationDashboard = () => {
         <div className="col-md-4">
           <div className="card">
             <div className="card-header bg-primary text-white">
-              <h5 className="mb-0">Register New Patient</h5>
+              <h5 className="mb-0">Patient Check-In</h5>
             </div>
             <div className="card-body">
+              {/* Patient Type Selection */}
+              <div className="mb-4">
+                <label className="form-label fw-bold">Patient Type</label>
+                <div className="btn-group w-100" role="group">
+                  <input
+                    type="radio"
+                    className="btn-check"
+                    name="patientType"
+                    id="typeNew"
+                    checked={patientType === 'new'}
+                    onChange={() => handlePatientTypeChange('new')}
+                  />
+                  <label className="btn btn-outline-primary" htmlFor="typeNew">
+                    <i className="bi bi-person-plus"></i> New Patient
+                  </label>
+
+                  <input
+                    type="radio"
+                    className="btn-check"
+                    name="patientType"
+                    id="typeReturning"
+                    checked={patientType === 'returning'}
+                    onChange={() => handlePatientTypeChange('returning')}
+                  />
+                  <label className="btn btn-outline-success" htmlFor="typeReturning">
+                    <i className="bi bi-person-check"></i> Returning Patient
+                  </label>
+                </div>
+                <small className="text-muted d-block mt-2">
+                  {patientType === 'new' 
+                    ? 'Register a first-time patient' 
+                    : 'Check-in an existing patient (enter name + phone)'}
+                </small>
+              </div>
+
+              {/* Returning Patient Found Message */}
+              {returningPatientFound?.found && (
+                <div className="alert alert-success">
+                  <h6 className="alert-heading">
+                    <i className="bi bi-check-circle"></i> Patient Found!
+                  </h6>
+                  <p className="mb-1"><strong>Name:</strong> {returningPatientFound.patient.name}</p>
+                  <p className="mb-1"><strong>Age:</strong> {returningPatientFound.patient.age}</p>
+                  <p className="mb-1"><strong>Gender:</strong> {returningPatientFound.patient.gender}</p>
+                  {returningPatientFound.username && (
+                    <p className="mb-0">
+                      <strong>Portal Username:</strong> {returningPatientFound.username}
+                    </p>
+                  )}
+                  <hr />
+                  <small>Patient has been checked in for today's visit.</small>
+                </div>
+              )}
+
               <form onSubmit={handleSubmit}>
+                {/* Name - Required for both */}
                 <div className="mb-3">
                   <label className="form-label">Name *</label>
                   <input
@@ -131,80 +222,76 @@ const RegistrationDashboard = () => {
                     value={formData.name}
                     onChange={handleInputChange}
                     required
+                    placeholder={patientType === 'returning' ? 'Enter exact name' : 'Full name'}
                   />
                 </div>
 
+                {/* Phone - Required for both */}
                 <div className="mb-3">
-                  <label className="form-label">Age *</label>
-                  <input
-                    type="number"
-                    className="form-control"
-                    name="age"
-                    value={formData.age}
-                    onChange={handleInputChange}
-                    required
-                    min="0"
-                  />
-                </div>
-
-                <div className="mb-3">
-                  <label className="form-label">Gender *</label>
-                  <select
-                    className="form-select"
-                    name="gender"
-                    value={formData.gender}
-                    onChange={handleInputChange}
-                    required
-                  >
-                    <option value="Male">Male</option>
-                    <option value="Female">Female</option>
-                    <option value="Other">Other</option>
-                  </select>
-                </div>
-
-                <div className="mb-3">
-                  <label className="form-label">Phone</label>
+                  <label className="form-label">Phone Number *</label>
                   <input
                     type="tel"
                     className="form-control"
                     name="phone"
                     value={formData.phone}
                     onChange={handleInputChange}
-                    placeholder="Required for patient portal login"
+                    required
+                    placeholder={patientType === 'returning' ? 'Enter registered phone' : '10-digit number'}
                   />
+                  {patientType === 'returning' && (
+                    <small className="text-info">
+                      <i className="bi bi-info-circle"></i> Enter the exact name and phone used during first visit
+                    </small>
+                  )}
                 </div>
 
-                {/* Patient Portal Account Setup */}
-                <div className="mb-3">
-                  <div className="form-check">
-                    <input
-                      className="form-check-input"
-                      type="checkbox"
-                      id="setupPortalAccount"
-                      checked={showPasswordFields}
-                      onChange={(e) => setShowPasswordFields(e.target.checked)}
-                    />
-                    <label className="form-check-label" htmlFor="setupPortalAccount">
-                      <strong>Setup Patient Portal Account</strong>
-                      <br />
-                      <small className="text-muted">Allow patient to view their records online</small>
-                    </label>
-                  </div>
-                </div>
-
-                {showPasswordFields && (
+                {/* Additional fields only for NEW patients */}
+                {patientType === 'new' && (
                   <>
                     <div className="mb-3">
-                      <label className="form-label">Username *</label>
+                      <label className="form-label">Age *</label>
+                      <input
+                        type="number"
+                        className="form-control"
+                        name="age"
+                        value={formData.age}
+                        onChange={handleInputChange}
+                        required
+                        min="0"
+                      />
+                    </div>
+
+                    <div className="mb-3">
+                      <label className="form-label">Gender *</label>
+                      <select
+                        className="form-select"
+                        name="gender"
+                        value={formData.gender}
+                        onChange={handleInputChange}
+                        required
+                      >
+                        <option value="Male">Male</option>
+                        <option value="Female">Female</option>
+                        <option value="Other">Other</option>
+                      </select>
+                    </div>
+
+                    {/* Patient Portal Account - Always Created */}
+                    <div className="mb-3">
+                      <label className="form-label">
+                        Username * 
+                        <small className="text-muted ms-2">(Auto-generated from name)</small>
+                      </label>
                       <input
                         type="text"
                         className="form-control"
                         name="username"
                         value={formData.username}
-                        onChange={handleInputChange}
-                        required={showPasswordFields}
-                        placeholder="For patient portal login"
+                        readOnly
+                        placeholder="Will be generated from name"
+                        style={{ backgroundColor: '#f0f0f0' }}
                       />
+                      <small className="text-muted">Patient will use this to login to the portal</small>
                     </div>
 
                     <div className="mb-3">
@@ -215,9 +302,10 @@ const RegistrationDashboard = () => {
                         name="email"
                         value={formData.email}
                         onChange={handleInputChange}
-                        required={showPasswordFields}
+                        required
                         placeholder="patient@example.com"
                       />
+                      <small className="text-muted">For password recovery and notifications</small>
                     </div>
 
                     <div className="mb-3">
@@ -228,39 +316,49 @@ const RegistrationDashboard = () => {
                         name="password"
                         value={formData.password}
                         onChange={handleInputChange}
-                        required={showPasswordFields}
+                        required
                         placeholder="Minimum 6 characters"
                         minLength="6"
                       />
                       <small className="text-muted">Patient will use this to login to the portal</small>
                     </div>
+
+                    <div className="mb-3">
+                      <label className="form-label">Address</label>
+                      <textarea
+                        className="form-control"
+                        name="address"
+                        value={formData.address}
+                        onChange={handleInputChange}
+                        rows="2"
+                      />
+                    </div>
                   </>
                 )}
 
+                {/* Reason for visit - shown for both */}
                 <div className="mb-3">
-                  <label className="form-label">Address</label>
-                  <textarea
-                    className="form-control"
-                    name="address"
-                    value={formData.address}
-                    onChange={handleInputChange}
-                    rows="2"
-                  />
-                </div>
-
-                <div className="mb-3">
-                  <label className="form-label">Reason for Visit</label>
+                  <label className="form-label">
+                    {patientType === 'returning' ? 'Reason for Today\'s Visit' : 'Reason for Visit'}
+                  </label>
                   <textarea
                     className="form-control"
                     name="reason"
                     value={formData.reason}
                     onChange={handleInputChange}
                     rows="3"
+                    placeholder={patientType === 'returning' ? 'What brings you in today?' : 'Optional'}
                   />
                 </div>
 
                 <button type="submit" className="btn btn-primary w-100" disabled={loading}>
-                  {loading ? 'Registering...' : 'Register Patient'}
+                  {loading ? (
+                    patientType === 'returning' ? 'Checking In...' : 'Registering...'
+                  ) : (
+                    patientType === 'returning' ? 
+                      <><i className="bi bi-person-check"></i> Check In Patient</> : 
+                      <><i className="bi bi-person-plus"></i> Register New Patient</>
+                  )}
                 </button>
               </form>
             </div>

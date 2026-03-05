@@ -4,22 +4,31 @@ import axiosInstance from '../api/axiosInstance';
 import { useAuth } from '../context/AuthContext';
 
 const Prescription = () => {
-  const [prescription, setPrescription] = useState(null);
+  const [prescriptionHistory, setPrescriptionHistory] = useState([]);
   const [loading, setLoading] = useState(true);
   const { logout } = useAuth();
 
   useEffect(() => {
-    fetchPrescription();
+    fetchPrescriptionHistory();
+    
+    // Auto-refresh prescription history every 10 seconds
+    const interval = setInterval(() => {
+      fetchPrescriptionHistory();
+    }, 10000); // 10 seconds
+    
+    return () => clearInterval(interval); // Cleanup on unmount
   }, []);
 
-  const fetchPrescription = async () => {
+  const fetchPrescriptionHistory = async () => {
     try {
-      const response = await axiosInstance.get('/api/patient-portal/prescription/');
-      setPrescription(response.data);
+      const response = await axiosInstance.get('/api/patient-portal/prescription-history/');
+      setPrescriptionHistory(response.data);
     } catch (error) {
-      console.error('Error fetching prescription:', error);
+      console.error('Error fetching prescription history:', error);
     } finally {
-      setLoading(false);
+      if (loading) {
+        setLoading(false);
+      }
     }
   };
 
@@ -39,38 +48,69 @@ const Prescription = () => {
           <Link to="/measurements" className="nav-link">Vitals</Link>
           <Link to="/prescription" className="nav-link active">Prescription</Link>
           <Link to="/visits" className="nav-link">Visits</Link>
+          <Link to="/health-progress" className="nav-link">Health Progress</Link>
           <button onClick={logout} className="btn btn-outline">Logout</button>
         </div>
       </nav>
 
       <div className="content">
-        <h1>My Prescription</h1>
-        <p className="subtitle">Current medications and treatment plan</p>
+        <h1>My Prescriptions</h1>
+        <p className="subtitle">Complete history of your prescribed medications</p>
 
-        {prescription && prescription.medicines && prescription.medicines.length > 0 ? (
-          <div className="prescription-grid">
-            {prescription.medicines.map((medicine, index) => (
-              <div key={index} className="card prescription-card">
-                <div className="prescription-header">
-                  <h3>{medicine.name}</h3>
-                  <span className="badge badge-primary">{medicine.type}</span>
+        {prescriptionHistory && prescriptionHistory.length > 0 ? (
+          <div className="measurements-list">
+            {prescriptionHistory.map((prescription, index) => (
+              <div key={index} className="card measurement-card">
+                <div className="measurement-header">
+                  <span className="measurement-date">
+                    {new Date(prescription.created_at).toLocaleDateString('en-US', { 
+                      year: 'numeric', 
+                      month: 'long', 
+                      day: 'numeric' 
+                    })}, {new Date(prescription.created_at).toLocaleTimeString('en-US', { 
+                      hour: '2-digit', 
+                      minute: '2-digit' 
+                    })}
+                  </span>
+                  <span className="badge badge-info">
+                    {prescription.visit_date ? 
+                      `Visit: ${new Date(prescription.visit_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}` 
+                      : 'Prescription'}
+                  </span>
                 </div>
-                <div className="prescription-details">
-                  <div className="detail-row">
-                    <span className="detail-label">Dosage:</span>
-                    <span className="detail-value">{medicine.dose}</span>
-                  </div>
-                  <div className="detail-row">
-                    <span className="detail-label">Quantity:</span>
-                    <span className="detail-value">{medicine.quantity}</span>
-                  </div>
+                
+                <div className="prescription-medicines-grid">
+                  {prescription.medicines && prescription.medicines.map((medicine, medIndex) => (
+                    <div key={medIndex} className="medicine-item">
+                      <div className="medicine-header">
+                        <h4 className="medicine-name">💊 {medicine.name}</h4>
+                        <span className="badge badge-primary" style={{ fontSize: '0.75rem' }}>
+                          {medicine.type}
+                        </span>
+                      </div>
+                      <div className="medicine-details">
+                        <div className="detail-row">
+                          <span className="detail-label">Dosage:</span>
+                          <span className="detail-value">{medicine.dose}</span>
+                        </div>
+                        <div className="detail-row">
+                          <span className="detail-label">Quantity:</span>
+                          <span className="detail-value">{medicine.quantity}</span>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
                 </div>
               </div>
             ))}
           </div>
         ) : (
           <div className="card">
-            <p className="text-muted">No active prescriptions</p>
+            <div className="empty-state">
+              <div className="empty-icon">💊</div>
+              <p>No prescription history available</p>
+              <p className="text-muted" style={{ fontSize: '0.85rem' }}>Your prescription records will appear here</p>
+            </div>
           </div>
         )}
       </div>

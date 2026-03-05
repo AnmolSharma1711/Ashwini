@@ -1,9 +1,12 @@
 import React, { useState, useEffect } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-import { getPatientReports, getReportAnalysis, uploadReport } from "../api";
+import { getPatientReports, getReportAnalysis, uploadReport, getPatients, getPatient } from "../api";
 
-const ReportAnalysis = ({ patientId }) => {
+const ReportAnalysis = () => {
+	const [patients, setPatients] = useState([]);
+	const [selectedPatient, setSelectedPatient] = useState(null);
+	const [patientSearch, setPatientSearch] = useState("");
 	const [reports, setReports] = useState([]);
 	const [selectedReport, setSelectedReport] = useState(null);
 	const [loading, setLoading] = useState(false);
@@ -17,16 +20,40 @@ const ReportAnalysis = ({ patientId }) => {
 	};
 
 	useEffect(() => {
-		if (patientId) {
+		loadPatients();
+	}, []);
+
+	useEffect(() => {
+		if (selectedPatient) {
 			fetchReports();
 		}
 		// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, [patientId]);
+	}, [selectedPatient]);
+
+	const loadPatients = async () => {
+		try {
+			const response = await getPatients();
+			setPatients(response.data);
+		} catch (error) {
+			showMessage("error", "Failed to load patients");
+		}
+	};
+
+	const loadPatientDetails = async (patientId) => {
+		try {
+			const response = await getPatient(patientId);
+			setSelectedPatient(response.data);
+		} catch (error) {
+			showMessage("error", "Failed to load patient details");
+		}
+	};
 
 	const fetchReports = async () => {
+		if (!selectedPatient) return;
+		
 		setLoading(true);
 		try {
-			const response = await getPatientReports(patientId);
+			const response = await getPatientReports(selectedPatient.id);
 			setReports(response.data);
 			
 			// Auto-select the latest report if available
@@ -81,7 +108,7 @@ const ReportAnalysis = ({ patientId }) => {
 	};
 
 	const handleUploadReport = async () => {
-		if (!patientId) {
+		if (!selectedPatient) {
 			showMessage("error", "Please select a patient first");
 			return;
 		}
@@ -97,7 +124,7 @@ const ReportAnalysis = ({ patientId }) => {
 			formData.append("report_image", selectedFile);
 			formData.append("uploaded_by", "report_analysis_page");
 
-			await uploadReport(patientId, formData);
+			await uploadReport(selectedPatient.id, formData);
 
 			showMessage(
 				"success",
@@ -141,6 +168,84 @@ const ReportAnalysis = ({ patientId }) => {
 
 	return (
 		<div className="report-analysis">
+			<div className="card mb-3">
+				<div className="card-header bg-info text-white">
+					<h5 className="mb-0">
+						<i className="bi bi-person-badge"></i> Select Patient
+					</h5>
+				</div>
+				<div className="card-body">
+					<div className="row">
+						<div className="col-md-6">
+							<input
+								type="text"
+								className="form-control mb-3"
+								placeholder="Search by Patient ID or Name"
+								value={patientSearch}
+								onChange={(e) => setPatientSearch(e.target.value)}
+							/>
+						</div>
+					</div>
+					
+					<div className="table-responsive" style={{ maxHeight: "300px", overflowY: "auto" }}>
+						<table className="table table-hover">
+							<thead className="table-light sticky-top">
+								<tr>
+									<th>ID</th>
+									<th>Name</th>
+									<th>Age</th>
+									<th>Gender</th>
+									<th>Status</th>
+									<th>Action</th>
+								</tr>
+							</thead>
+							<tbody>
+								{patients
+									.filter((p) =>
+										patientSearch === "" ||
+										p.id.toString().includes(patientSearch) ||
+										p.name.toLowerCase().includes(patientSearch.toLowerCase())
+									)
+									.map((patient) => (
+										<tr
+											key={patient.id}
+											className={selectedPatient?.id === patient.id ? "table-primary" : ""}
+										>
+											<td>{patient.id}</td>
+											<td>{patient.name}</td>
+											<td>{patient.age}</td>
+											<td>{patient.gender}</td>
+											<td>
+												<span className={`badge bg-${
+													patient.status === "waiting" ? "warning" :
+													patient.status === "checking" ? "info" :
+													patient.status === "examined" ? "success" : "secondary"
+												}`}>
+													{patient.status}
+												</span>
+											</td>
+											<td>
+												<button
+													className="btn btn-sm btn-primary"
+													onClick={() => loadPatientDetails(patient.id)}
+												>
+													Select
+												</button>
+											</td>
+										</tr>
+									))}
+							</tbody>
+						</table>
+					</div>
+
+					{selectedPatient && (
+						<div className="alert alert-success mt-3 mb-0">
+							<strong>Selected Patient:</strong> {selectedPatient.name} (ID: {selectedPatient.id})
+						</div>
+					)}
+				</div>
+			</div>
+
 			<div className="card">
 				<div className="card-header bg-primary text-white">
 					<h5 className="mb-0">
@@ -189,13 +294,13 @@ const ReportAnalysis = ({ patientId }) => {
 										className="d-none"
 										accept="image/jpeg,image/jpg,image/png,application/pdf"
 										onChange={handleFileSelect}
-										disabled={!patientId || uploadingReport}
+										disabled={!selectedPatient || uploadingReport}
 									/>
 									<label
 										htmlFor="reportFileInput"
 										className="btn btn-outline-primary w-50"
 										style={{
-											cursor: patientId && !uploadingReport ? "pointer" : "not-allowed",
+											cursor: selectedPatient && !uploadingReport ? "pointer" : "not-allowed",
 										}}
 									>
 										<i className="bi bi-folder2-open"></i> Choose File
@@ -208,13 +313,13 @@ const ReportAnalysis = ({ patientId }) => {
 										accept="image/*"
 										capture="environment"
 										onChange={handleFileSelect}
-										disabled={!patientId || uploadingReport}
+										disabled={!selectedPatient || uploadingReport}
 									/>
 									<label
 										htmlFor="reportCameraInput"
 										className="btn btn-outline-primary w-50"
 										style={{
-											cursor: patientId && !uploadingReport ? "pointer" : "not-allowed",
+											cursor: selectedPatient && !uploadingReport ? "pointer" : "not-allowed",
 										}}
 									>
 										<i className="bi bi-camera"></i> Take Photo
@@ -236,7 +341,7 @@ const ReportAnalysis = ({ patientId }) => {
 							<button
 								className="btn btn-warning w-100 mb-2"
 								onClick={handleUploadReport}
-								disabled={!patientId || !selectedFile || uploadingReport}
+								disabled={!selectedPatient || !selectedFile || uploadingReport}
 							>
 								<i className="bi bi-cloud-upload"></i>{" "}
 								{uploadingReport ? "Uploading & Analyzing..." : "Upload & Analyze Report"}

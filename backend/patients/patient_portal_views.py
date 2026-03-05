@@ -323,28 +323,26 @@ def patient_prescription_view(request):
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
-def patient_visits_view(request):
+def patient_prescription_history_view(request):
     """
-    Get visit history for the current patient.
+    Get prescription history for the current patient to compare past prescriptions.
     
-    GET /api/patient-portal/visits/
+    GET /api/patient-portal/prescription-history/
     
-    Response:
-    {
-        "visit_count": 3,
-        "latest_visit": "2024-01-15T10:30:00Z",
-        "next_appointment": "2024-02-15",
-        "visit_history": [
-            {
-                "visit_time": "2024-01-15T10:30:00Z",
-                "reason": "Regular checkup",
-                "status": "completed",
-                "health_status": "normal",
-                "notes": "Patient is recovering well"
-            }
-        ]
-    }
+    Response: Array of historical prescriptions sorted by date (latest first)
+    [
+        {
+            "id": 1,
+            "medicines": [...],
+            "created_at": "2024-01-15T10:45:00Z",
+            "visit_date": "2024-01-15T09:00:00Z"
+        },
+        ...
+    ]
     """
+    from prescriptions.models import PrescriptionHistory
+    from prescriptions.serializers import PrescriptionHistorySerializer
+    
     user = request.user
     
     # Check if user is a patient
@@ -363,17 +361,65 @@ def patient_visits_view(request):
             status=status.HTTP_404_NOT_FOUND
         )
     
-    # For now, return current visit info
-    # In the future, you can track multiple visits per patient
+    # Get prescription history
+    history = PrescriptionHistory.objects.filter(patient=patient)
+    serializer = PrescriptionHistorySerializer(history, many=True)
+    
+    return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def patient_visits_view(request):
+    """
+    Get visit history for the current patient.
+    
+    GET /api/patient-portal/visits/
+    
+    Response:
+    {
+        "current_visit": {...},
+        "visit_history": [...]
+    }
+    """
+    from .models import VisitHistory
+    from .serializers import VisitHistorySerializer
+    
+    user = request.user
+    
+    # Check if user is a patient
+    if user.role != 'PATIENT':
+        return Response(
+            {'error': 'Only patients can access this endpoint'},
+            status=status.HTTP_403_FORBIDDEN
+        )
+    
+    # Get patient profile
+    try:
+        patient = user.patient_profile
+    except Patient.DoesNotExist:
+        return Response(
+            {'error': 'No patient profile found for this user'},
+            status=status.HTTP_404_NOT_FOUND
+        )
+    
+    # Get current visit info
+    current_visit = {
+        'visit_time': patient.visit_time,
+        'reason': patient.reason,
+        'status': patient.status,
+        'health_status': patient.health_status,
+        'notes': patient.notes,
+        'next_visit_date': patient.next_visit_date
+    }
+    
+    # Get visit history
+    history = VisitHistory.objects.filter(patient=patient)
+    history_serializer = VisitHistorySerializer(history, many=True)
+    
     response_data = {
-        'current_visit': {
-            'visit_time': patient.visit_time,
-            'reason': patient.reason,
-            'status': patient.status,
-            'health_status': patient.health_status,
-            'notes': patient.notes,
-            'next_visit_date': patient.next_visit_date
-        }
+        'current_visit': current_visit,
+        'visit_history': history_serializer.data
     }
     
     return Response(response_data, status=status.HTTP_200_OK)
