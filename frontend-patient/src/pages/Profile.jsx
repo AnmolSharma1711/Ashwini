@@ -89,9 +89,35 @@ const Profile = () => {
         <div className="card">
           <h2>Health Information</h2>
           <div className="profile-grid">
-            <div className="profile-item">
+            <div className="profile-item" style={{ width: '100%' }}>
               <span className="profile-label">Health Status:</span>
-              <span className="profile-value badge badge-success">{profile?.health_status || 'N/A'}</span>
+              <div style={{
+                width: '100%',
+                background: '#e0e0e0',
+                borderRadius: '20px',
+                height: '32px',
+                margin: '0.5rem 0',
+                display: 'flex',
+                alignItems: 'center',
+                overflow: 'hidden',
+              }}>
+                <div style={{
+                  background: getHealthStatusColor(profile?.health_status),
+                  color: 'white',
+                  height: '100%',
+                  width: '100%',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'flex-start',
+                  paddingLeft: '1rem',
+                  fontWeight: 700,
+                  fontSize: '1.1rem',
+                  textTransform: 'capitalize',
+                  transition: 'background 0.3s',
+                }}>
+                  {profile?.health_status || 'N/A'}
+                </div>
+              </div>
             </div>
             <div className="profile-item">
               <span className="profile-label">Current Status:</span>
@@ -133,3 +159,14 @@ const Profile = () => {
 };
 
 export default Profile;
+
+// Add this helper function at the top, after imports:
+function getHealthStatusColor(status) {
+  const statusColors = {
+    'normal': '#10b981', // green
+    'mild': '#f59e0b',   // yellow/orange
+    'critical': '#ef4444', // red
+    'unknown': '#6b7280' // gray
+  };
+  return statusColors[status?.toLowerCase()] || '#6b7280';
+}

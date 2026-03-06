@@ -54,7 +54,6 @@ def login_view(request):
             status=status.HTTP_400_BAD_REQUEST
         )
     
-    # Only allow patient portal login with patient_id (PATxxxx)
     user = None
     if username.upper().startswith('PAT'):
         from .models import Patient
@@ -70,11 +69,8 @@ def login_view(request):
                 status=status.HTTP_401_UNAUTHORIZED
             )
     else:
-        # For patient portal, do not allow login with username
-        return Response(
-            {'error': 'Please use your Patient ID (e.g., PAT0001) to log in.'},
-            status=status.HTTP_400_BAD_REQUEST
-        )
+        # Try normal username authentication for staff/main/unified portals
+        user = authenticate(username=username, password=password)
     
     if user is None:
         return Response(
