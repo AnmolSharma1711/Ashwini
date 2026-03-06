@@ -3,7 +3,7 @@ import axiosInstance from '../api/axiosInstance';
 import MobileNavbar from '../components/MobileNavbar';
 
 const Prescription = () => {
-  const [prescription, setPrescription] = useState(null);
+  const [prescriptionHistory, setPrescriptionHistory] = useState([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
