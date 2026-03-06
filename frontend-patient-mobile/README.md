@@ -2,6 +2,8 @@
 
 Mobile Android application for the Ashwini Patient Portal built with React, Vite, and Capacitor.
 
+**Important:** Make sure `VITE_API_BASE_URL` is set to your deployed backend URL in GitHub Secrets.
+
 ## Features
 
 - 📱 Native Android app experience
