@@ -62,7 +62,6 @@ jobs:
       - name: Generate Android icons from icon.png
         run: |
           if [ -f "public/assets/icon.png" ]; then
-            npm install -g @capacitor/assets
             npx capacitor-assets generate --android --iconBackgroundColor '#667eea'
           fi
         continue-on-error: true
