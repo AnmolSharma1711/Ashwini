@@ -60,6 +60,10 @@ const Profile = () => {
           <h2>Personal Information</h2>
           <div className="profile-grid">
             <div className="profile-item">
+              <span className="profile-label">Patient ID:</span>
+              <span className="profile-value"><strong style={{ color: '#007bff', fontSize: '1.1em' }}>{profile?.patient_id}</strong></span>
+            </div>
+            <div className="profile-item">
               <span className="profile-label">Name:</span>
               <span className="profile-value">{profile?.name}</span>
             </div>

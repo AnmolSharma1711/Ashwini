@@ -75,6 +75,14 @@ class Patient(models.Model):
         ('Other', 'Other'),
     ]
     
+    # Unique Hospital Patient ID (auto-generated)
+    patient_id = models.CharField(
+        max_length=20,
+        unique=True,
+        editable=False,
+        help_text="Unique hospital ID (e.g., PAT001)"
+    )
+    
     # Link to user account (optional - for patient portal access)
     user = models.OneToOneField(
         CustomUser,
@@ -91,6 +99,34 @@ class Patient(models.Model):
     gender = models.CharField(max_length=10, choices=GENDER_CHOICES)
     phone = models.CharField(max_length=20, blank=True, null=True)
     address = models.TextField(blank=True, null=True)
+    
+    # Patient Consent & Privacy (HIPAA/Privacy Compliance)
+    data_collection_consent = models.BooleanField(
+        default=False,
+        help_text="Patient consents to collection and storage of personal/health information"
+    )
+    data_usage_consent = models.BooleanField(
+        default=False,
+        help_text="Patient consents to medical information being accessed by authorized staff"
+    )
+    privacy_policy_acknowledged = models.BooleanField(
+        default=False,
+        help_text="Patient acknowledges reading and understanding privacy policy"
+    )
+    consent_timestamp = models.DateTimeField(
+        blank=True,
+        null=True,
+        help_text="When patient provided consent"
+    )
+    consent_version = models.CharField(
+        max_length=10,
+        default='1.0',
+        help_text="Version of privacy policy patient consented to"
+    )
+    portal_consent_given = models.BooleanField(
+        default=False,
+        help_text="Whether patient has given consent on first portal login"
+    )
     
     # Visit Information
     reason = models.TextField(blank=True, null=True, help_text="Reason for visit")
@@ -125,7 +161,30 @@ class Patient(models.Model):
         ordering = ['-priority_score', 'visit_time']
     
     def __str__(self):
-        return f"{self.name} ({self.age}, {self.gender}) - {self.status}"
+        return f"{self.patient_id} - {self.name} ({self.age}, {self.gender})"
+    
+    def save(self, *args, **kwargs):
+        """
+        Auto-generate patient_id if not set.
+        Format: PAT001, PAT002, etc.
+        """
+        if not self.patient_id:
+            # Get the last patient ID
+            last_patient = Patient.objects.all().order_by('-id').first()
+            if last_patient and last_patient.patient_id:
+                # Extract number from last patient_id (e.g., "PAT001" -> 1)
+                try:
+                    last_number = int(last_patient.patient_id.replace('PAT', ''))
+                    new_number = last_number + 1
+                except (ValueError, AttributeError):
+                    new_number = 1
+            else:
+                new_number = 1
+            
+            # Generate new patient_id with zero-padding
+            self.patient_id = f"PAT{new_number:04d}"
+        
+        super().save(*args, **kwargs)
     
     def assess_health_status(self):
         """
@@ -241,3 +300,48 @@ class VisitHistory(models.Model):
     
     def __str__(self):
         return f"{self.patient.name} - {self.visit_time.strftime('%Y-%m-%d %H:%M')}"
+
+
+class ConsentLog(models.Model):
+    """
+    Audit log for patient consent tracking.
+    Records all consent actions for legal and compliance purposes.
+    """
+    
+    ACTION_CHOICES = [
+        ('CONSENT_GRANTED', 'Consent Granted'),
+        ('CONSENT_UPDATED', 'Consent Updated'),
+        ('CONSENT_WITHDRAWN', 'Consent Withdrawn'),
+        ('PORTAL_CONSENT_GRANTED', 'Portal Consent Granted'),
+    ]
+    
+    patient = models.ForeignKey(
+        Patient,
+        on_delete=models.CASCADE,
+        related_name='consent_logs'
+    )
+    action = models.CharField(max_length=30, choices=ACTION_CHOICES)
+    timestamp = models.DateTimeField(auto_now_add=True)
+    consent_version = models.CharField(max_length=10, default='1.0')
+    ip_address = models.GenericIPAddressField(blank=True, null=True)
+    user_agent = models.TextField(blank=True, null=True)
+    
+    # Consent details at the time of action
+    data_collection_consent = models.BooleanField(default=False)
+    data_usage_consent = models.BooleanField(default=False)
+    privacy_policy_acknowledged = models.BooleanField(default=False)
+    
+    # Additional context
+    notes = models.TextField(
+        blank=True,
+        null=True,
+        help_text="Additional notes about consent action"
+    )
+    
+    class Meta:
+        ordering = ['-timestamp']
+        verbose_name = 'Consent Log'
+        verbose_name_plural = 'Consent Logs'
+    
+    def __str__(self):
+        return f"{self.patient.patient_id} - {self.action} - {self.timestamp.strftime('%Y-%m-%d %H:%M')}"

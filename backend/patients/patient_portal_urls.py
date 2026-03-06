@@ -9,7 +9,9 @@ from .patient_portal_views import (
     patient_measurements_view,
     patient_prescription_view,
     patient_prescription_history_view,
-    patient_visits_view
+    patient_visits_view,
+    patient_consent_status_view,
+    patient_give_consent_view
 )
 
 urlpatterns = [
@@ -22,4 +24,8 @@ urlpatterns = [
     path('prescription/', patient_prescription_view, name='patient-prescription'),
     path('prescription-history/', patient_prescription_history_view, name='patient-prescription-history'),
     path('visits/', patient_visits_view, name='patient-visits'),
+    
+    # Consent management
+    path('consent-status/', patient_consent_status_view, name='patient-consent-status'),
+    path('give-consent/', patient_give_consent_view, name='patient-give-consent'),
 ]

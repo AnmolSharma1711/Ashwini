@@ -423,3 +423,136 @@ def patient_visits_view(request):
     }
     
     return Response(response_data, status=status.HTTP_200_OK)
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def patient_consent_status_view(request):
+    """
+    Get consent status for the current patient.
+    
+    GET /api/patient-portal/consent-status/
+    
+    Response:
+    {
+        "portal_consent_given": true,
+        "data_collection_consent": true,
+        "data_usage_consent": true,
+        "privacy_policy_acknowledged": true,
+        "consent_timestamp": "2024-01-15T10:30:00Z",
+        "consent_version": "1.0"
+    }
+    """
+    user = request.user
+    
+    # Check if user is a patient
+    if user.role != 'PATIENT':
+        return Response(
+            {'error': 'Only patients can access this endpoint'},
+            status=status.HTTP_403_FORBIDDEN
+        )
+    
+    # Get patient profile
+    try:
+        patient = user.patient_profile
+    except Patient.DoesNotExist:
+        return Response(
+            {'error': 'No patient profile found for this user'},
+            status=status.HTTP_404_NOT_FOUND
+        )
+    
+    consent_data = {
+        'portal_consent_given': patient.portal_consent_given,
+        'data_collection_consent': patient.data_collection_consent,
+        'data_usage_consent': patient.data_usage_consent,
+        'privacy_policy_acknowledged': patient.privacy_policy_acknowledged,
+        'consent_timestamp': patient.consent_timestamp,
+        'consent_version': patient.consent_version
+    }
+    
+    return Response(consent_data, status=status.HTTP_200_OK)
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def patient_give_consent_view(request):
+    """
+    Update portal consent for the current patient.
+    
+    POST /api/patient-portal/give-consent/
+    
+    Request Body:
+    {
+        "portal_consent_given": true
+    }
+    
+    Response:
+    {
+        "message": "Consent recorded successfully",
+        "portal_consent_given": true,
+        "consent_timestamp": "2024-01-15T10:30:00Z"
+    }
+    """
+    from django.utils import timezone
+    from .models import ConsentLog
+    from .views import get_client_ip
+    
+    user = request.user
+    
+    # Check if user is a patient
+    if user.role != 'PATIENT':
+        return Response(
+            {'error': 'Only patients can access this endpoint'},
+            status=status.HTTP_403_FORBIDDEN
+        )
+    
+    # Get patient profile
+    try:
+        patient = user.patient_profile
+    except Patient.DoesNotExist:
+        return Response(
+            {'error': 'No patient profile found for this user'},
+            status=status.HTTP_404_NOT_FOUND
+        )
+    
+    # Validate request data
+    portal_consent = request.data.get('portal_consent_given', False)
+    
+    if not portal_consent:
+        return Response(
+            {'error': 'Portal consent must be granted to access the patient portal'},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+    
+    # Update consent
+    patient.portal_consent_given = True
+    
+    # If this is the first consent, also set consent timestamp
+    if not patient.consent_timestamp:
+        patient.consent_timestamp = timezone.now()
+    
+    patient.save()
+    
+    # Log consent action for audit trail
+    try:
+        ConsentLog.objects.create(
+            patient=patient,
+            action='PORTAL_CONSENT_GRANTED',
+            consent_version='1.0',
+            ip_address=get_client_ip(request),
+            user_agent=request.META.get('HTTP_USER_AGENT', ''),
+            data_collection_consent=patient.data_collection_consent,
+            data_usage_consent=patient.data_usage_consent,
+            privacy_policy_acknowledged=patient.privacy_policy_acknowledged,
+            notes='Patient gave consent via patient portal'
+        )
+    except Exception as e:
+        print(f"Warning: Failed to log consent: {str(e)}")
+    
+    response_data = {
+        'message': 'Consent recorded successfully',
+        'portal_consent_given': patient.portal_consent_given,
+        'consent_timestamp': patient.consent_timestamp
+    }
+    
+    return Response(response_data, status=status.HTTP_200_OK)

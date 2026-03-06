@@ -95,7 +95,9 @@ const Dashboard = () => {
         <div className="welcome-section">
           <div>
             <h1>Welcome back, {profile?.name || user?.first_name}! 👋</h1>
-            <p className="subtitle">Here's your health overview for today</p>
+            <p className="subtitle">
+              Patient ID: <strong style={{ color: '#007bff' }}>{profile?.patient_id}</strong> | Here's your health overview for today
+            </p>
           </div>
           <div className="date-display">
             <span>{new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</span>

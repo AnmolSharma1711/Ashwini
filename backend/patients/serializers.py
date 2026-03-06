@@ -26,7 +26,7 @@ class PatientListSerializer(serializers.ModelSerializer):
     class Meta:
         model = Patient
         fields = [
-            'id', 'name', 'age', 'gender', 'phone', 'status', 'visit_time', 
+            'id', 'patient_id', 'name', 'age', 'gender', 'phone', 'status', 'visit_time', 
             'reason', 'health_status', 'priority_score', 'last_assessment_time'
         ]
 
@@ -48,7 +48,7 @@ class PatientDetailSerializer(serializers.ModelSerializer):
     class Meta:
         model = Patient
         fields = [
-            'id', 'name', 'age', 'gender', 'phone', 'address', 'reason',
+            'id', 'patient_id', 'name', 'age', 'gender', 'phone', 'address', 'reason',
             'visit_time', 'status', 'notes', 'next_visit_date',
             'latest_measurement', 'prescription', 
             'health_status', 'priority_score', 'last_assessment_time'
@@ -68,10 +68,11 @@ class PatientCreateUpdateSerializer(serializers.ModelSerializer):
     class Meta:
         model = Patient
         fields = [
-            'id', 'name', 'age', 'gender', 'phone', 'address', 'reason',
-            'status', 'notes', 'next_visit_date'
+            'id', 'patient_id', 'name', 'age', 'gender', 'phone', 'address', 'reason',
+            'status', 'notes', 'next_visit_date',
+            'data_collection_consent', 'data_usage_consent', 'privacy_policy_acknowledged'
         ]
-        read_only_fields = ['id']
+        read_only_fields = ['id', 'patient_id']
     
     def validate_age(self, value):
         """Validate age field - reject empty strings and invalid values."""
@@ -91,6 +92,22 @@ class PatientCreateUpdateSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError("Age must be between 0 and 150.")
         
         return value
+    
+    def validate(self, data):
+        """Validate consent fields for new patient registration."""
+        # Check if this is a new patient creation (not an update)
+        if not self.instance:
+            # Require all consent fields for new registrations
+            required_consents = ['data_collection_consent', 'data_usage_consent', 'privacy_policy_acknowledged']
+            
+            for consent_field in required_consents:
+                if not data.get(consent_field, False):
+                    field_name = consent_field.replace('_', ' ').title()
+                    raise serializers.ValidationError({
+                        consent_field: f"{field_name} is required for new patient registration."
+                    })
+        
+        return data
 
 
 class VisitHistorySerializer(serializers.ModelSerializer):

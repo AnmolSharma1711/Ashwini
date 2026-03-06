@@ -24,9 +24,12 @@ def login_view(request):
     
     Request Body:
     {
-        "username": "string",
+        "username": "string",  // Can be username OR patient_id for patients
         "password": "string"
     }
+    
+    For patients: Use patient_id (e.g., "PAT0001") as username
+    For staff: Use regular username
     
     Response:
     {
@@ -51,8 +54,22 @@ def login_view(request):
             status=status.HTTP_400_BAD_REQUEST
         )
     
-    # Authenticate user
-    user = authenticate(username=username, password=password)
+    # Check if username is actually a patient_id (format: PAT####)
+    user = None
+    if username.upper().startswith('PAT'):
+        # Try to find patient by patient_id and get their user account
+        from .models import Patient
+        try:
+            patient = Patient.objects.filter(patient_id=username.upper()).first()
+            if patient and patient.user:
+                # Authenticate using the linked user account's username
+                user = authenticate(username=patient.user.username, password=password)
+        except Exception as e:
+            print(f"Error finding patient by patient_id: {str(e)}")
+    
+    # If not found via patient_id, try normal username authentication
+    if user is None:
+        user = authenticate(username=username, password=password)
     
     if user is None:
         return Response(
@@ -75,6 +92,14 @@ def login_view(request):
         'refresh': str(refresh),
         'user': UserSerializer(user).data
     }
+    
+    # Add patient_id if user is a patient
+    if user.role == 'PATIENT':
+        try:
+            patient_id = user.patient_profile.patient_id
+            response_data['patient_id'] = patient_id
+        except:
+            pass
     
     return Response(response_data, status=status.HTTP_200_OK)
 

@@ -91,6 +91,10 @@ export const getPatient = (id) => {
 	return api.get(`/patients/${id}/`);
 };
 
+export const searchPatients = (searchTerm) => {
+	return api.get("/patients/search/", { params: { q: searchTerm } });
+};
+
 export const createPatient = (patientData) => {
 	return api.post("/patients/", patientData);
 };

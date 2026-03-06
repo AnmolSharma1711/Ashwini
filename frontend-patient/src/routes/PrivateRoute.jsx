@@ -1,9 +1,10 @@
 import React from 'react';
 import { Navigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import ConsentModal from '../components/ConsentModal';
 
 const PrivateRoute = ({ children }) => {
-  const { isAuthenticated, loading } = useAuth();
+  const { isAuthenticated, loading, needsConsent, giveConsent, logout } = useAuth();
 
   if (loading) {
     return (
@@ -13,7 +14,29 @@ const PrivateRoute = ({ children }) => {
     );
   }
 
-  return isAuthenticated ? children : <Navigate to="/login" replace />;
+  if (!isAuthenticated) {
+    return <Navigate to="/login" replace />;
+  }
+
+  // Show consent modal if user is authenticated but hasn't given portal consent
+  if (needsConsent) {
+    return (
+      <ConsentModal
+        onAccept={async () => {
+          const result = await giveConsent();
+          if (!result.success) {
+            alert(result.error || 'Failed to record consent. Please try again.');
+          }
+        }}
+        onDecline={() => {
+          logout();
+          window.location.href = '/login';
+        }}
+      />
+    );
+  }
+
+  return children;
 };
 
 export default PrivateRoute;

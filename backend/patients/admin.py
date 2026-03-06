@@ -1,6 +1,6 @@
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin
-from .models import CustomUser, Patient, VisitHistory
+from .models import CustomUser, Patient, VisitHistory, ConsentLog
 
 
 @admin.register(CustomUser)
@@ -54,3 +54,24 @@ class VisitHistoryAdmin(admin.ModelAdmin):
     search_fields = ['patient__name', 'reason', 'notes']
     ordering = ['-visit_time']
     readonly_fields = ['archived_at']
+
+
+@admin.register(ConsentLog)
+class ConsentLogAdmin(admin.ModelAdmin):
+    list_display = ['id', 'patient', 'action', 'timestamp', 'consent_version', 'ip_address']
+    list_filter = ['action', 'timestamp', 'consent_version']
+    search_fields = ['patient__patient_id', 'patient__name', 'ip_address']
+    ordering = ['-timestamp']
+    readonly_fields = ['timestamp', 'ip_address', 'user_agent']
+    
+    fieldsets = (
+        ('Patient Information', {
+            'fields': ('patient', 'action', 'timestamp')
+        }),
+        ('Consent Details', {
+            'fields': ('data_collection_consent', 'data_usage_consent', 'privacy_policy_acknowledged', 'consent_version')
+        }),
+        ('Audit Information', {
+            'fields': ('ip_address', 'user_agent', 'notes')
+        }),
+    )

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { getPatients, createPatient, deletePatient } from '../api';
+import { getPatients, createPatient, deletePatient, searchPatients } from '../api';
 
 const RegistrationDashboard = () => {
   const [patients, setPatients] = useState([]);
@@ -7,9 +7,13 @@ const RegistrationDashboard = () => {
   const [message, setMessage] = useState({ type: '', text: '' });
   const [patientType, setPatientType] = useState('new'); // 'new' or 'returning'
   const [returningPatientFound, setReturningPatientFound] = useState(null);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [searchResults, setSearchResults] = useState([]);
+  const [isSearching, setIsSearching] = useState(false);
 
   // Form state
   const [formData, setFormData] = useState({
+    patient_id: '', // For returning patients
     name: '',
     age: '',
     gender: 'Male',
@@ -19,6 +23,9 @@ const RegistrationDashboard = () => {
     username: '',
     email: '',
     password: '',
+    data_collection_consent: false,
+    data_usage_consent: false,
+    privacy_policy_acknowledged: false,
   });
 
   const fetchPatients = useCallback(async () => {
@@ -38,7 +45,13 @@ const RegistrationDashboard = () => {
   }, [fetchPatients]);
 
   const handleInputChange = (e) => {
-    const { name, value } = e.target;
+    const { name, value, type, checked } = e.target;
+    
+    // Handle checkbox inputs
+    if (type === 'checkbox') {
+      setFormData({ ...formData, [name]: checked });
+      return;
+    }
     
     // Auto-generate username from patient name
     if (name === 'name') {
@@ -52,7 +65,10 @@ const RegistrationDashboard = () => {
   const handlePatientTypeChange = (type) => {
     setPatientType(type);
     setReturningPatientFound(null);
+    setSearchTerm('');
+    setSearchResults([]);
     setFormData({
+      patient_id: '',
       name: '',
       age: '',
       gender: 'Male',
@@ -62,14 +78,72 @@ const RegistrationDashboard = () => {
       username: '',
       email: '',
       password: '',
+      data_collection_consent: false,
+      data_usage_consent: false,
+      privacy_policy_acknowledged: false,
     });
     setMessage({ type: '', text: '' });
+  };
+
+  const handleSearch = async () => {
+    if (!searchTerm.trim()) {
+      showMessage('error', 'Please enter a search term');
+      return;
+    }
+
+    setIsSearching(true);
+    try {
+      const response = await searchPatients(searchTerm);
+      setSearchResults(response.data.results || []);
+      
+      if (response.data.count === 0) {
+        showMessage('error', 'No patient found with that Patient ID, phone, or name');
+      } else if (response.data.count === 1) {
+        // Exact match - auto-fill form
+        const patient = response.data.results[0];
+        setFormData({
+          ...formData,
+          patient_id: patient.patient_id,
+          name: patient.name,
+          phone: patient.phone || '',
+        });
+        showMessage('success', `Found: ${patient.name} (${patient.patient_id})`);
+      } else {
+        showMessage('success', `Found ${response.data.count} patients`);
+      }
+    } catch (error) {
+      showMessage('error', 'Search failed: ' + (error.response?.data?.error || error.message));
+      setSearchResults([]);
+    } finally {
+      setIsSearching(false);
+    }
+  };
+
+  const selectSearchResult = (patient) => {
+    setFormData({
+      ...formData,
+      patient_id: patient.patient_id,
+      name: patient.name,
+      phone: patient.phone || '',
+    });
+    setSearchResults([]);
+    setSearchTerm('');
+    showMessage('success', `Selected: ${patient.name} (${patient.patient_id})`);
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
     setReturningPatientFound(null);
+
+    // Validate consent for new patients
+    if (patientType === 'new') {
+      if (!formData.data_collection_consent || !formData.data_usage_consent || !formData.privacy_policy_acknowledged) {
+        showMessage('error', 'Please check all consent boxes to register the patient.');
+        setLoading(false);
+        return;
+      }
+    }
 
     try {
       const response = await createPatient(formData);
@@ -79,15 +153,19 @@ const RegistrationDashboard = () => {
         setReturningPatientFound({
           found: true,
           patient: response.data.patient,
+          patient_id: response.data.patient_id,
           username: response.data.username
         });
-        showMessage('success', `Welcome back! ${response.data.message}`);
+        showMessage('success', `Welcome back! Patient ID: ${response.data.patient_id}`);
       } else {
-        showMessage('success', 'New patient registered successfully!');
+        showMessage('success', `New patient registered! Patient ID: ${response.data.patient_id}`);
+        // Show patient_id prominently in a separate alert
+        alert(`✅ PATIENT REGISTERED\n\nPatient ID: ${response.data.patient_id}\nName: ${response.data.patient.name}\n\nPlease share this Patient ID with the patient.\nThey can use it to login to the patient portal.`);
       }
       
       // Reset form
       setFormData({
+        patient_id: '',
         name: '',
         age: '',
         gender: 'Male',
@@ -97,7 +175,12 @@ const RegistrationDashboard = () => {
         username: '',
         email: '',
         password: '',
+        data_collection_consent: false,
+        data_usage_consent: false,
+        privacy_policy_acknowledged: false,
       });
+      setSearchTerm('');
+      setSearchResults([]);
 
       // Refresh patient list
       fetchPatients();
@@ -198,20 +281,74 @@ const RegistrationDashboard = () => {
                   <h6 className="alert-heading">
                     <i className="bi bi-check-circle"></i> Patient Found!
                   </h6>
+                  <p className="mb-1"><strong>Patient ID:</strong> <span className="badge bg-primary">{returningPatientFound.patient_id}</span></p>
                   <p className="mb-1"><strong>Name:</strong> {returningPatientFound.patient.name}</p>
                   <p className="mb-1"><strong>Age:</strong> {returningPatientFound.patient.age}</p>
-                  <p className="mb-1"><strong>Gender:</strong> {returningPatientFound.patient.gender}</p>
-                  {returningPatientFound.username && (
-                    <p className="mb-0">
-                      <strong>Portal Username:</strong> {returningPatientFound.username}
-                    </p>
-                  )}
+                  <p className="mb-0"><strong>Gender:</strong> {returningPatientFound.patient.gender}</p>
                   <hr />
                   <small>Patient has been checked in for today's visit.</small>
                 </div>
               )}
 
               <form onSubmit={handleSubmit}>
+                {/* Search for returning patients */}
+                {patientType === 'returning' && (
+                  <div className="mb-3">
+                    <label className="form-label">Search Patient <small className="text-muted">(Patient ID, Phone, or Name)</small></label>
+                    <div className="input-group">
+                      <input
+                        type="text"
+                        className="form-control"
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                        placeholder="Enter Patient ID, phone, or name"
+                        onKeyPress={(e) => e.key === 'Enter' && (e.preventDefault(), handleSearch())}
+                      />
+                      <button 
+                        className="btn btn-outline-primary" 
+                        type="button"
+                        onClick={handleSearch}
+                        disabled={isSearching}
+                      >
+                        {isSearching ? 'Searching...' : <><i className="bi bi-search"></i> Search</>}
+                      </button>
+                    </div>
+                    <small className="text-info d-block mt-1">
+                      <i className="bi bi-info-circle"></i> Preferred: Use Patient ID (e.g., PAT0001)
+                    </small>
+                    
+                    {/* Search Results */}
+                    {searchResults.length > 0 && (
+                      <div className="mt-2 border rounded p-2" style={{ maxHeight: '200px', overflowY: 'auto' }}>
+                        <strong className="d-block mb-2">Select a patient:</strong>
+                        {searchResults.map((patient) => (
+                          <div 
+                            key={patient.id} 
+                            className="p-2 mb-1 bg-light rounded cursor-pointer hover-bg-primary"
+                            onClick={() => selectSearchResult(patient)}
+                            style={{ cursor: 'pointer' }}
+                          >
+                            <strong>{patient.patient_id}</strong> - {patient.name} ({patient.phone})
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+                
+                {/* Patient ID field - auto-filled for returning patients */}
+                {patientType === 'returning' && formData.patient_id && (
+                  <div className="mb-3">
+                    <label className="form-label">Patient ID</label>
+                    <input
+                      type="text"
+                      className="form-control bg-light"
+                      value={formData.patient_id}
+                      readOnly
+                    />
+                  </div>
+                )}
+
                 {/* Name - Required for both */}
                 <div className="mb-3">
                   <label className="form-label">Name *</label>
@@ -222,7 +359,8 @@ const RegistrationDashboard = () => {
                     value={formData.name}
                     onChange={handleInputChange}
                     required
-                    placeholder={patientType === 'returning' ? 'Enter exact name' : 'Full name'}
+                    placeholder={patientType === 'returning' ? 'Auto-filled from search' : 'Full name'}
+                    readOnly={patientType === 'returning' && formData.patient_id}
                   />
                 </div>
 
@@ -236,11 +374,12 @@ const RegistrationDashboard = () => {
                     value={formData.phone}
                     onChange={handleInputChange}
                     required
-                    placeholder={patientType === 'returning' ? 'Enter registered phone' : '10-digit number'}
+                    placeholder={patientType === 'returning' ? 'Auto-filled from search' : '10-digit number'}
+                    readOnly={patientType === 'returning' && formData.patient_id}
                   />
-                  {patientType === 'returning' && (
-                    <small className="text-info">
-                      <i className="bi bi-info-circle"></i> Enter the exact name and phone used during first visit
+                  {patientType === 'returning' && !formData.patient_id && (
+                    <small className="text-warning">
+                      <i className="bi bi-exclamation-triangle"></i> Please search and select a patient first
                     </small>
                   )}
                 </div>
@@ -276,22 +415,12 @@ const RegistrationDashboard = () => {
                       </select>
                     </div>
 
-                    {/* Patient Portal Account - Always Created */}
-                    <div className="mb-3">
-                      <label className="form-label">
-                        Username * 
-                        <small className="text-muted ms-2">(Auto-generated from name)</small>
-                      </label>
-                      <input
-                        type="text"
-                        className="form-control"
-                        name="username"
-                        value={formData.username}
-                        readOnly
-                        placeholder="Will be generated from name"
-                        style={{ backgroundColor: '#f0f0f0' }}
-                      />
-                      <small className="text-muted">Patient will use this to login to the portal</small>
+                    {/* Patient Portal Account - Patient ID will be used for login */}
+                    <div className="alert alert-info mb-3">
+                      <small>
+                        <i className="bi bi-info-circle"></i> <strong>Patient Portal Access:</strong> After registration, 
+                        the patient will receive a unique <strong>Patient ID</strong> (e.g., PAT0001) to login to the patient portal.
+                      </small>
                     </div>
 
                     <div className="mb-3">
@@ -320,7 +449,7 @@ const RegistrationDashboard = () => {
                         placeholder="Minimum 6 characters"
                         minLength="6"
                       />
-                      <small className="text-muted">Patient will use this to login to the portal</small>
+                      <small className="text-muted">Patient will use Patient ID + Password to login to the portal</small>
                     </div>
 
                     <div className="mb-3">
@@ -350,6 +479,66 @@ const RegistrationDashboard = () => {
                     placeholder={patientType === 'returning' ? 'What brings you in today?' : 'Optional'}
                   />
                 </div>
+
+                {/* Consent Checkboxes - Only for new patients */}
+                {patientType === 'new' && (
+                  <div className="mb-4">
+                    <div className="card bg-light">
+                      <div className="card-header">
+                        <h6 className="mb-0">Patient Consent (Required)</h6>
+                      </div>
+                      <div className="card-body">
+                        <div className="form-check mb-2">
+                          <input
+                            className="form-check-input"
+                            type="checkbox"
+                            id="data_collection_consent"
+                            name="data_collection_consent"
+                            checked={formData.data_collection_consent}
+                            onChange={handleInputChange}
+                            required
+                          />
+                          <label className="form-check-label" htmlFor="data_collection_consent">
+                            <strong>Data Collection:</strong> I consent to my health information being collected and stored by this healthcare facility.
+                          </label>
+                        </div>
+                        <div className="form-check mb-2">
+                          <input
+                            className="form-check-input"
+                            type="checkbox"
+                            id="data_usage_consent"
+                            name="data_usage_consent"
+                            checked={formData.data_usage_consent}
+                            onChange={handleInputChange}
+                            required
+                          />
+                          <label className="form-check-label" htmlFor="data_usage_consent">
+                            <strong>Data Usage:</strong> I consent to my health data being used for treatment, diagnosis, and quality improvement purposes.
+                          </label>
+                        </div>
+                        <div className="form-check">
+                          <input
+                            className="form-check-input"
+                            type="checkbox"
+                            id="privacy_policy_acknowledged"
+                            name="privacy_policy_acknowledged"
+                            checked={formData.privacy_policy_acknowledged}
+                            onChange={handleInputChange}
+                            required
+                          />
+                          <label className="form-check-label" htmlFor="privacy_policy_acknowledged">
+                            <strong>Privacy Policy:</strong> I have read and acknowledge the hospital's privacy policy and data protection practices.
+                          </label>
+                        </div>
+                        <div className="mt-2">
+                          <small className="text-muted">
+                            <i className="bi bi-info-circle"></i> All consents are required for registration and HIPAA compliance.
+                          </small>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
 
                 <button type="submit" className="btn btn-primary w-100" disabled={loading}>
                   {loading ? (
@@ -381,7 +570,7 @@ const RegistrationDashboard = () => {
                   <table className="table table-hover">
                     <thead>
                       <tr>
-                        <th>ID</th>
+                        <th>Patient ID</th>
                         <th>Name</th>
                         <th>Age</th>
                         <th>Gender</th>
@@ -395,7 +584,7 @@ const RegistrationDashboard = () => {
                     <tbody>
                       {patients.map((patient) => (
                         <tr key={patient.id}>
-                          <td>{patient.id}</td>
+                          <td><strong className="text-primary">{patient.patient_id}</strong></td>
                           <td>{patient.name}</td>
                           <td>{patient.age}</td>
                           <td>{patient.gender}</td>

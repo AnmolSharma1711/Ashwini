@@ -4,7 +4,7 @@ from rest_framework.response import Response
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
 
-from .models import Patient
+from .models import Patient, ConsentLog
 from .serializers import (
     PatientListSerializer,
     PatientDetailSerializer,
@@ -12,6 +12,33 @@ from .serializers import (
 )
 from prescriptions.models import Prescription
 from prescriptions.serializers import PrescriptionSerializer
+
+
+def get_client_ip(request):
+    """Extract client IP address from request."""
+    x_forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR')
+    if x_forwarded_for:
+        ip = x_forwarded_for.split(',')[0]
+    else:
+        ip = request.META.get('REMOTE_ADDR')
+    return ip
+
+
+def log_consent(patient, request, action='CONSENT_GRANTED'):
+    """Log patient consent action for audit trail."""
+    try:
+        ConsentLog.objects.create(
+            patient=patient,
+            action=action,
+            consent_version='1.0',
+            ip_address=get_client_ip(request),
+            user_agent=request.META.get('HTTP_USER_AGENT', ''),
+            data_collection_consent=patient.data_collection_consent,
+            data_usage_consent=patient.data_usage_consent,
+            privacy_policy_acknowledged=patient.privacy_policy_acknowledged
+        )
+    except Exception as e:
+        print(f"Warning: Failed to log consent: {str(e)}")
 
 
 class PatientViewSet(viewsets.ModelViewSet):
@@ -70,23 +97,73 @@ class PatientViewSet(viewsets.ModelViewSet):
         serializer = self.get_serializer(patients, many=True)
         return Response(serializer.data)
     
+    @action(detail=False, methods=['get'])
+    def search(self, request):
+        """
+        Search for patients by patient_id, phone, or name.
+        
+        GET /api/patients/search/?q=<search_term>
+        
+        Searches in the following order:
+        1. Exact match by patient_id
+        2. Exact match by phone number
+        3. Partial match by name (case-insensitive)
+        
+        Returns list of matching patients.
+        """
+        search_term = request.query_params.get('q', '').strip()
+        
+        if not search_term:
+            return Response(
+                {'error': 'Search term required. Use ?q=<patient_id|phone|name>'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # Try exact match by patient_id first
+        patient = Patient.objects.filter(patient_id=search_term).first()
+        if patient:
+            serializer = PatientDetailSerializer(patient)
+            return Response({'results': [serializer.data], 'count': 1})
+        
+        # Try exact match by phone
+        patients = Patient.objects.filter(phone=search_term)
+        if patients.exists():
+            serializer = PatientListSerializer(patients, many=True)
+            return Response({'results': serializer.data, 'count': patients.count()})
+        
+        # Try partial match by name (case-insensitive)
+        patients = Patient.objects.filter(name__icontains=search_term)
+        serializer = PatientListSerializer(patients, many=True)
+        return Response({'results': serializer.data, 'count': patients.count()})
+    
     def create(self, request, *args, **kwargs):
         """
         Register a patient for a new visit.
         
-        - If patient exists (by name + phone number): Update visit information and reset status
+        Search priority for existing patients:
+        1. patient_id (if provided)
+        2. phone + name combination
+        
+        - If patient exists: Update visit information and reset status (returning patient)
         - If patient is new: Create new patient record
         - Preserves user account, measurements, and prescription history
-        - Uses name + phone combination to identify patients (family members can share phone)
         """
         try:
+            patient_id = request.data.get('patient_id')
             phone = request.data.get('phone')
             name = request.data.get('name')
             
-            # Check if patient already exists by name AND phone number
+            # Check if patient already exists
             existing_patient = None
-            if phone and name:
+            
+            # Priority 1: Search by patient_id if provided
+            if patient_id:
+                existing_patient = Patient.objects.filter(patient_id=patient_id).first()
+            
+            # Priority 2: Search by name + phone number if patient_id not found
+            if not existing_patient and phone and name:
                 existing_patient = Patient.objects.filter(phone=phone, name=name).first()
+        
         except Exception as e:
             print(f"Error checking for existing patient: {str(e)}")
             import traceback
@@ -198,6 +275,7 @@ class PatientViewSet(viewsets.ModelViewSet):
             return Response({
                 'message': 'Returning patient checked in successfully',
                 'patient': serializer.data,
+                'patient_id': existing_patient.patient_id,  # Display patient_id
                 'is_returning': True,
                 'username': existing_patient.user.username if existing_patient.user else None
             }, status=status.HTTP_200_OK)
@@ -252,12 +330,25 @@ class PatientViewSet(viewsets.ModelViewSet):
         # Save patient with optional user link
         patient = serializer.save(user=user)
         
+        # Set consent timestamp
+        patient.consent_timestamp = timezone.now()
+        patient.save()
+        
+        # Log consent for audit trail
+        log_consent(patient, request, action='CONSENT_GRANTED')
+        
         # Automatically create an empty prescription for this patient
         Prescription.objects.create(patient=patient)
         
-        # Return the full patient detail
+        # Return the full patient detail with patient_id prominently shown
         detail_serializer = PatientDetailSerializer(patient)
-        return Response(detail_serializer.data, status=status.HTTP_201_CREATED)
+        return Response({
+            'message': 'New patient registered successfully',
+            'patient': detail_serializer.data,
+            'patient_id': patient.patient_id,  # Prominently display patient_id
+            'is_returning': False,
+            'username': patient.user.username if patient.user else None
+        }, status=status.HTTP_201_CREATED)
     
     def update(self, request, *args, **kwargs):
         """

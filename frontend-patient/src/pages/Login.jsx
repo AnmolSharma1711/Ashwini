@@ -52,17 +52,20 @@ const Login = () => {
 
         <form onSubmit={handleSubmit} className="login-form">
           <div className="form-group">
-            <label htmlFor="username">Username</label>
+            <label htmlFor="username">Patient ID</label>
             <input
               type="text"
               id="username"
               value={username}
               onChange={(e) => setUsername(e.target.value)}
-              placeholder="Enter your username"
+              placeholder="Enter your Patient ID (e.g., PAT0001)"
               required
               autoComplete="username"
               disabled={isLoading}
             />
+            <small className="form-text text-muted">
+              💡 Use your Patient ID provided during registration at the reception
+            </small>
           </div>
 
           <div className="form-group">
