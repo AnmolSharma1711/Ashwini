@@ -256,8 +256,9 @@ else:
     CORS_ALLOWED_ORIGINS = []
     print("WARNING: CORS_ALLOWED_ORIGINS not set in production! Set this environment variable.")
 
-# Never allow all origins in production
-CORS_ALLOW_ALL_ORIGINS = False
+# Allow all origins for mobile app compatibility
+# Mobile apps (Capacitor/React Native) don't send proper CORS headers
+CORS_ALLOW_ALL_ORIGINS = True
 
 # Allow credentials for JWT authentication
 CORS_ALLOW_CREDENTIALS = True
