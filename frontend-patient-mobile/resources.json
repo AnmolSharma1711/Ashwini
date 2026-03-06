@@ -1,0 +1,41 @@
+{
+  "resources": [
+    {
+      "src": "public/assets/icon.png",
+      "type": "icon",
+      "platform": "android",
+      "sizes": [
+        {
+          "width": 36,
+          "height": 36,
+          "density": "ldpi"
+        },
+        {
+          "width": 48,
+          "height": 48,
+          "density": "mdpi"
+        },
+        {
+          "width": 72,
+          "height": 72,
+          "density": "hdpi"
+        },
+        {
+          "width": 96,
+          "height": 96,
+          "density": "xhdpi"
+        },
+        {
+          "width": 144,
+          "height": 144,
+          "density": "xxhdpi"
+        },
+        {
+          "width": 192,
+          "height": 192,
+          "density": "xxxhdpi"
+        }
+      ]
+    }
+  ]
+}

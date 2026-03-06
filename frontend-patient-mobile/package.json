@@ -9,7 +9,8 @@
     "preview": "vite preview",
     "android": "cap sync android && cap open android",
     "sync": "cap sync",
-    "copy": "cap copy"
+    "copy": "cap copy",
+    "generate-icons": "capacitor-assets generate --iconBackgroundColor '#667eea' --iconBackgroundColorDark '#667eea'"
   },
   "dependencies": {
     "@capacitor/android": "^6.0.0",
@@ -26,6 +27,7 @@
     "recharts": "^3.7.0"
   },
   "devDependencies": {
+    "@capacitor/assets": "^3.0.5",
     "@capacitor/cli": "^6.0.0",
     "@types/react": "^18.2.43",
     "@types/react-dom": "^18.2.17",
