@@ -54,22 +54,27 @@ def login_view(request):
             status=status.HTTP_400_BAD_REQUEST
         )
     
-    # Check if username is actually a patient_id (format: PAT####)
+    # Only allow patient portal login with patient_id (PATxxxx)
     user = None
     if username.upper().startswith('PAT'):
-        # Try to find patient by patient_id and get their user account
         from .models import Patient
         try:
             patient = Patient.objects.filter(patient_id=username.upper()).first()
             if patient and patient.user:
-                # Authenticate using the linked user account's username
                 user = authenticate(username=patient.user.username, password=password)
         except Exception as e:
             print(f"Error finding patient by patient_id: {str(e)}")
-    
-    # If not found via patient_id, try normal username authentication
-    if user is None:
-        user = authenticate(username=username, password=password)
+        if user is None:
+            return Response(
+                {'error': 'Invalid Patient ID or password.'},
+                status=status.HTTP_401_UNAUTHORIZED
+            )
+    else:
+        # For patient portal, do not allow login with username
+        return Response(
+            {'error': 'Please use your Patient ID (e.g., PAT0001) to log in.'},
+            status=status.HTTP_400_BAD_REQUEST
+        )
     
     if user is None:
         return Response(

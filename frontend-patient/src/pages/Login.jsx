@@ -16,9 +16,14 @@ const Login = () => {
     setErrorMessage('');
     setIsLoading(true);
 
+    // Enforce patient ID format (PATxxxx)
+    if (!/^PAT\d{4,}$/i.test(username.trim())) {
+      setErrorMessage('Please enter a valid Patient ID (e.g., PAT0001).');
+      setIsLoading(false);
+      return;
+    }
     try {
-      const result = await login(username, password);
-      
+      const result = await login(username.trim().toUpperCase(), password);
       if (result.success) {
         navigate('/dashboard', { replace: true });
       } else {
