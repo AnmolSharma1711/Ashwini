@@ -61,10 +61,9 @@ jobs:
 
       - name: Generate Android icons from icon.png
         run: |
-          if [ -f "public/assets/icon.png" ]; then
-            npx capacitor-assets generate --android --iconBackgroundColor '#667eea'
+          if [ -f "resources/icon.png" ]; then
+            npx capacitor-assets generate --android --iconBackgroundColor '#667eea' --iconBackgroundColorDark '#667eea'
           fi
-        continue-on-error: true
 
       - name: Sync Capacitor
         run: npx cap sync android
