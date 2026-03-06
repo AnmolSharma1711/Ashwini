@@ -1,0 +1,113 @@
+name: Build Android APK
+
+on:
+  push:
+    branches: [ main, master, develop ]
+    paths:
+      - 'frontend-patient-mobile/**'
+      - '.github/workflows/android-build.yml'
+  pull_request:
+    branches: [ main, master ]
+    paths:
+      - 'frontend-patient-mobile/**'
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    
+    defaults:
+      run:
+        working-directory: frontend-patient-mobile
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+          cache-dependency-path: frontend-patient-mobile/package-lock.json
+
+      - name: Setup Java JDK
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Create environment file
+        run: |
+          echo "VITE_API_BASE_URL=${{ secrets.VITE_API_BASE_URL }}" > .env
+
+      - name: Build React app
+        run: npm run build
+
+      - name: Install Capacitor CLI globally
+        run: npm install -g @capacitor/cli
+
+      - name: Initialize Android platform (if not exists)
+        run: |
+          if [ ! -d "android" ]; then
+            npx cap add android
+          fi
+
+      - name: Sync Capacitor
+        run: npx cap sync android
+
+      - name: Grant execute permission for gradlew
+        run: chmod +x android/gradlew
+
+      - name: Build Android Debug APK
+        working-directory: frontend-patient-mobile/android
+        run: ./gradlew assembleDebug --stacktrace
+
+      - name: Build Android Release APK (unsigned)
+        working-directory: frontend-patient-mobile/android
+        run: ./gradlew assembleRelease --stacktrace
+        continue-on-error: true
+
+      - name: Upload Debug APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: ashwini-patient-debug
+          path: frontend-patient-mobile/android/app/build/outputs/apk/debug/app-debug.apk
+          retention-days: 30
+
+      - name: Upload Release APK (if available)
+        uses: actions/upload-artifact@v4
+        if: success()
+        with:
+          name: ashwini-patient-release
+          path: frontend-patient-mobile/android/app/build/outputs/apk/release/app-release-unsigned.apk
+          retention-days: 30
+        continue-on-error: true
+
+      - name: Comment PR with download link
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const runId = context.runId;
+            const message = `✅ Android APK built successfully!
+            
+            📦 Download the debug APK from the [workflow artifacts](https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${runId})
+            
+            To install on your device:
+            1. Download the APK from artifacts
+            2. Enable "Install from unknown sources" on your Android device
+            3. Transfer and install the APK`;
+            
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: message
+            });
