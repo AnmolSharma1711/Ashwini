@@ -631,6 +631,9 @@ body {
   display: flex;
   flex-direction: column;
   gap: 1rem;
+  max-height: 300px;
+  overflow-y: auto;
+  padding-right: 4px;
 }
 
 .medicine-item-modern {

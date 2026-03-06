@@ -56,10 +56,10 @@ const Dashboard = () => {
 
   const getHealthStatusColor = (status) => {
     const statusColors = {
-      'normal': '#10b981',
-      'mild': '#f59e0b',
-      'critical': '#ef4444',
-      'unknown': '#6b7280'
+      'normal': '#10b981', // green
+      'mild': '#f59e0b',   // yellow/orange
+      'critical': '#ef4444', // red
+      'unknown': '#6b7280' // gray
     };
     return statusColors[status?.toLowerCase()] || '#6b7280';
   };
@@ -106,14 +106,35 @@ const Dashboard = () => {
 
         <div className="stats-grid">
           <div className="stat-card stat-card-health" style={{ borderLeftColor: getHealthStatusColor(profile?.health_status) }}>
-            <div className="stat-icon-circle" style={{ background: `${getHealthStatusColor(profile?.health_status)}20`, color: getHealthStatusColor(profile?.health_status) }}>
-              {getHealthStatusIcon(profile?.health_status)}
-            </div>
-            <div className="stat-content">
+            <div className="stat-content" style={{ width: '100%' }}>
               <h3>Health Status</h3>
-              <p className="stat-value" style={{ color: getHealthStatusColor(profile?.health_status) }}>
-                {profile?.health_status || 'Unknown'}
-              </p>
+              <div style={{
+                width: '100%',
+                background: '#e0e0e0',
+                borderRadius: '20px',
+                height: '32px',
+                marginTop: '0.5rem',
+                display: 'flex',
+                alignItems: 'center',
+                overflow: 'hidden',
+              }}>
+                <div style={{
+                  background: getHealthStatusColor(profile?.health_status),
+                  color: 'white',
+                  height: '100%',
+                  width: '100%',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'flex-start',
+                  paddingLeft: '1rem',
+                  fontWeight: 700,
+                  fontSize: '1.1rem',
+                  textTransform: 'capitalize',
+                  transition: 'background 0.3s',
+                }}>
+                  {profile?.health_status || 'Unknown'}
+                </div>
+              </div>
             </div>
           </div>
 
