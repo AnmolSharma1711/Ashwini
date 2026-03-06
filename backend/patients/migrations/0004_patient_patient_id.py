@@ -3,6 +3,25 @@
 from django.db import migrations, models
 
 
+def populate_patient_ids(apps, schema_editor):
+    """Populate patient_id for all existing patients."""
+    Patient = apps.get_model('patients', 'Patient')
+    db_alias = schema_editor.connection.alias
+    
+    # Get all patients ordered by ID
+    patients = Patient.objects.using(db_alias).all().order_by('id')
+    
+    for index, patient in enumerate(patients, start=1):
+        if not patient.patient_id:  # Only populate if empty
+            patient.patient_id = f'PAT{index:04d}'
+            patient.save(update_fields=['patient_id'])
+
+
+def reverse_populate(apps, schema_editor):
+    """Reverse operation - not implemented."""
+    pass
+
+
 class Migration(migrations.Migration):
 
     dependencies = [
@@ -10,9 +29,29 @@ class Migration(migrations.Migration):
     ]
 
     operations = [
+        # Step 1: Add field without unique constraint, nullable
         migrations.AddField(
             model_name='patient',
             name='patient_id',
-            field=models.CharField(default='', editable=False, help_text='Unique hospital ID (e.g., PAT001)', max_length=20, unique=True),
+            field=models.CharField(
+                default='',
+                editable=False,
+                help_text='Unique hospital ID (e.g., PAT001)',
+                max_length=20,
+                blank=True,
+            ),
+        ),
+        # Step 2: Populate patient_ids for existing records
+        migrations.RunPython(populate_patient_ids, reverse_populate),
+        # Step 3: Add unique constraint
+        migrations.AlterField(
+            model_name='patient',
+            name='patient_id',
+            field=models.CharField(
+                editable=False,
+                help_text='Unique hospital ID (e.g., PAT001)',
+                max_length=20,
+                unique=True,
+            ),
         ),
     ]
