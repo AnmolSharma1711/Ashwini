@@ -1,7 +1,7 @@
 # Generated manually to fix patient_id for existing records
 
-from django.db import migrations
-
+from django.db import migrations, models
+import uuid
 
 def populate_patient_ids(apps, schema_editor):
     """
