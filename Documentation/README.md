@@ -5,6 +5,12 @@
 Project Ashwini is an enterprise-grade, full-stack healthcare management system with multi-platform support, role-based access control, patient portal, mobile applications, and IoT device integration capabilities. The platform streamlines patient flow, vitals monitoring, prescription management, medical report analysis, and patient engagement.
 
 ---
+## Live Application Links:
+Patient Portal - https://ashwini-patient.vercel.app
+Doctor's Portal - https://ashwini-unified-view.vercel.app
+Reception Portal - https://ashwini-frontend-main.vercel.app
+Patient Apk File- https://drive.google.com/file/d/1UoXjzWolk13Ztbwss2lLqTOc-DgAyMJZ/view?usp=sharing
+---
 
 ## 📋 Table of Contents
 
