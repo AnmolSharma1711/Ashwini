@@ -78,7 +78,15 @@ git push -u origin main
 
 ### 2️⃣ Deploy Backend on Render
 
-#### A. Create PostgreSQL Database
+#### A. Prepare Environment Variables (CRITICAL)
+
+**Generate SECRET_KEY** (do this locally first):
+```bash
+python -c "from django.core.management.utils import get_random_secret_key; print(get_random_secret_key())"
+```
+Copy the output - you'll need this for Render environment variables.
+
+#### B. Create PostgreSQL Database
 1. Go to [Render Dashboard](https://dashboard.render.com)
 2. Click **"New +"** → **"PostgreSQL"**
 3. Configure:
@@ -90,7 +98,7 @@ git push -u origin main
 4. Click **"Create Database"**
 5. **Copy the Internal Database URL** - you'll need this!
 
-#### B. Deploy Backend Service
+#### C. Deploy Backend Service
 1. Click **"New +"** → **"Blueprint"**
 2. Connect your GitHub repository
 3. Render will auto-detect `render.yaml` and configure:

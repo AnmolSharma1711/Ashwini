@@ -25,6 +25,7 @@ Patient Apk File- https://drive.google.com/file/d/1UoXjzWolk13Ztbwss2lLqTOc-DgAy
 - [API Endpoints](#api-endpoints)
 - [IoT Integration](#iot-integration)
 - [Deployment](#deployment)
+- [CI/CD & DevOps](#cicd--devops)
 - [Documentation](#documentation)
 - [Usage Guide](#usage-guide)
 - [Contributing](#contributing)
@@ -124,10 +125,13 @@ Project Ashwini is a complete healthcare ecosystem supporting multiple user type
 - **Cloud Storage**: Cloudinary integration for production deployments
 
 #### Authentication & Security
-- **JWT-Based Authentication**: Secure token-based auth for all portals
+- **JWT-Based Authentication**: Secure token-based auth with 1-hour access tokens and 7-day refresh tokens
+- **Rate Limiting**: Protection against brute force attacks (5 login attempts/minute, 3 registrations/hour per IP)
+- **Required SECRET_KEY**: No default secret key - must be explicitly configured in environment
 - **Role-Based Access Control (RBAC)**: Five user roles (Admin, Doctor, Nurse, Reception, Patient)
 - **Portal-Specific Access**: Automatic routing based on user role
 - **Consent Management**: GDPR-compliant consent logging
+- **CORS Configuration**: Configured for mobile app compatibility (Android/iOS)
 
 #### Patient Portal Features
 - **Personal Dashboard**: Overview of health metrics and upcoming visits
@@ -368,17 +372,20 @@ Ashwini/
 │       ├── iot_integration_with_api.ino  # ESP32 Arduino code
 │       └── keys.h                    # WiFi & API credentials
 │
-├── API_DOCUMENTATION.md              # Complete API reference
-├── ARCHITECTURE.md                   # System architecture details
-├── DEPLOYMENT_GUIDE.md               # Production deployment guide
-├── DEPLOYMENT_CHECKLIST.md           # Pre-deployment checklist
-├── IOT_INTEGRATION.md                # IoT integration guide
-├── ESP32_SETUP_GUIDE.md              # ESP32 device setup
+├── Documentation/                    # Comprehensive Documentation
+│   ├── API_DOCUMENTATION.md          # Complete API reference
+│   ├── ARCHITECTURE.md               # System architecture details
+│   ├── CI_CD.md                      # CI/CD implementation guide
+│   ├── DEPLOYMENT_GUIDE.md           # Production deployment guide
+│   ├── DEPLOYMENT_CHECKLIST.md       # Pre-deployment checklist
+│   ├── ESP32_SETUP_GUIDE.md          # ESP32 device setup
+│   ├── IOT_INTEGRATION.md            # IoT integration guide
+│   ├── MOBILE_APP_SUMMARY.md         # Mobile app overview
+│   ├── QUICKSTART.md                 # 5-minute quick start
+│   ├── SUPERUSER_GUIDE.md            # Admin user guide
+│   └── USER_GUIDE.md                 # End-user documentation
+│
 ├── RBAC.md                           # Role-based access control guide
-├── QUICKSTART.md                     # 5-minute quick start
-├── USER_GUIDE.md                     # End-user documentation
-├── SUPERUSER_GUIDE.md                # Admin user guide
-├── MOBILE_APP_SUMMARY.md             # Mobile app overview
 ├── Ashwini_Project_Report.md         # Complete project report
 │
 ├── setup.ps1                         # Complete project setup (Windows)
@@ -408,7 +415,7 @@ cd ashwini
 
 ### Option 2: Quick Start Guide
 
-See [QUICKSTART.md](QUICKSTART.md) for a detailed 5-minute setup guide.
+See [QUICKSTART.md](Documentation/QUICKSTART.md) for a detailed 5-minute setup guide.
 
 ### Option 3: Manual Setup
 
@@ -444,19 +451,37 @@ Follow the detailed instructions in the [Setup Instructions](#setup-instructions
    pip install -r requirements.txt
    ```
 
-4. **Run database migrations**:
+4. **Configure environment variables** (REQUIRED):
+   
+   Create a `.env` file in the `backend/` directory:
+   ```bash
+   # Generate a secure SECRET_KEY (REQUIRED)
+   python -c "from django.core.management.utils import get_random_secret_key; print(get_random_secret_key())"
+   ```
+   
+   Add to `backend/.env`:
+   ```bash
+   SECRET_KEY=your-generated-secret-key-here
+   DEBUG=True
+   ALLOWED_HOSTS=localhost,127.0.0.1
+   ```
+   
+   > ⚠️ **IMPORTANT**: The application will not start without `SECRET_KEY` set in environment variables.
+   > See `.env.example` for all available configuration options.
+
+5. **Run database migrations**:
    ```powershell
    python manage.py makemigrations
    python manage.py migrate
    ```
 
-5. **Create superuser** (for Django admin):
+6. **Create superuser** (for Django admin):
    ```powershell
    python manage.py createsuperuser
    ```
    Follow the prompts to set username, email, and password.
 
-6. **Start the Django server**:
+7. **Start the Django server**:
    ```powershell
    python manage.py runserver 0.0.0.0:8000
    ```
@@ -686,7 +711,7 @@ See [RBAC.md](RBAC.md) for complete RBAC implementation details.
 | GET | `/api/patient-portal/visits/` | Patient's visit history |
 | PUT | `/api/patient-portal/profile/` | Update patient profile |
 
-See [API_DOCUMENTATION.md](API_DOCUMENTATION.md) for complete API reference with request/response examples.
+See [API_DOCUMENTATION.md](Documentation/API_DOCUMENTATION.md) for complete API reference with request/response examples.
 
 ---
 
@@ -721,7 +746,7 @@ Sample ESP32 code is provided in `IoT-Integration/iot_integration_with_api/`
 **Frontend**:
 - `frontend-main/src/components/HealthMonitoringStation.js` - IoT device UI placeholders
 
-See [IOT_INTEGRATION.md](IOT_INTEGRATION.md) and [ESP32_SETUP_GUIDE.md](ESP32_SETUP_GUIDE.md) for detailed integration instructions.
+See [IOT_INTEGRATION.md](Documentation/IOT_INTEGRATION.md) and [ESP32_SETUP_GUIDE.md](Documentation/ESP32_SETUP_GUIDE.md) for detailed integration instructions.
 
 ---
 
@@ -765,27 +790,94 @@ npx cap sync android
 # Open in Android Studio and build release APK
 ```
 
-See [DEPLOYMENT_GUIDE.md](DEPLOYMENT_GUIDE.md) and [DEPLOYMENT_CHECKLIST.md](DEPLOYMENT_CHECKLIST.md) for complete deployment instructions.
+See [DEPLOYMENT_GUIDE.md](Documentation/DEPLOYMENT_GUIDE.md) and [DEPLOYMENT_CHECKLIST.md](Documentation/DEPLOYMENT_CHECKLIST.md) for complete deployment instructions.
 
 ---
 
-## 📚 Documentation
+## � CI/CD & DevOps
+
+### Current CI/CD Implementation
+
+Project Ashwini has implemented automated CI/CD pipelines for continuous integration and deployment:
+
+#### 1. GitHub Actions - Android Build Pipeline
+- **Location**: `.github/workflows/android-build.yml`
+- **Purpose**: Automated Android APK builds for patient mobile app
+- **Triggers**: Push to main/develop, pull requests, manual dispatch
+- **Features**:
+  - Automated dependency installation
+  - React app build and Capacitor sync
+  - Android debug APK generation
+  - Artifact upload (30-day retention)
+  - Automatic PR comments with download links
+
+**Accessing APK:**
+1. Go to GitHub Actions tab
+2. Select latest "Build Android APK" workflow
+3. Download from Artifacts section
+
+#### 2. Render.com - Backend Auto-Deploy
+- **Configuration**: `render.yaml` (Infrastructure as Code)
+- **Deployment**: Automatic on push to connected branch
+- **Features**:
+  - Python 3.11 runtime
+  - PostgreSQL database
+  - Automatic migrations via `build.sh`
+  - Health check monitoring
+  - Zero-downtime deployments
+
+#### 3. Vercel - Frontend Auto-Deploy
+- **Components**: All 3 React frontends (Reception, Doctor, Patient portals)
+- **Deployment**: Automatic on git push
+- **Features**:
+  - Preview deployments for pull requests
+  - CDN distribution and edge caching
+  - Automatic environment variable management
+  - Instant cache invalidation
+
+**Live Deployments:**
+- Reception Portal: https://ashwini-frontend-main.vercel.app
+- Doctor's Portal: https://ashwini-unified-view.vercel.app
+- Patient Portal: https://ashwini-patient.vercel.app
+
+### CI/CD Maturity: ~30%
+
+**✅ Implemented:**
+- Continuous Deployment for all components
+- Automated build pipelines
+- Preview environments for testing
+- Infrastructure as Code (IaC)
+
+**🔄 Future Enhancements:**
+- Automated testing (unit, integration, E2E)
+- Code quality checks (linting, formatting)
+- Security scanning (dependencies, vulnerabilities)
+- Staging environment setup
+- Release automation and versioning
+
+See [CI_CD.md](Documentation/CI_CD.md) for detailed CI/CD documentation, workflow configurations, and future enhancement plans.
+
+---
+
+## �📚 Documentation
 
 Comprehensive documentation is available:
 
 | Document | Description |
 |----------|-------------|
-| [API_DOCUMENTATION.md](API_DOCUMENTATION.md) | Complete API reference |
-| [ARCHITECTURE.md](ARCHITECTURE.md) | System architecture and design |
-| [DEPLOYMENT_GUIDE.md](DEPLOYMENT_GUIDE.md) | Production deployment guide |
-| [DEPLOYMENT_CHECKLIST.md](DEPLOYMENT_CHECKLIST.md) | Pre-deployment checklist |
-| [IOT_INTEGRATION.md](IOT_INTEGRATION.md) | IoT device integration |
-| [ESP32_SETUP_GUIDE.md](ESP32_SETUP_GUIDE.md) | ESP32 hardware setup |
+| [API_DOCUMENTATION.md](Documentation/API_DOCUMENTATION.md) | Complete API reference |
+| [ARCHITECTURE.md](Documentation/ARCHITECTURE.md) | System architecture and design |
+| [DEPLOYMENT_GUIDE.md](Documentation/DEPLOYMENT_GUIDE.md) | Production deployment guide |
+| [DEPLOYMENT_CHECKLIST.md](Documentation/DEPLOYMENT_CHECKLIST.md) | Pre-deployment checklist |
+| [SECURITY_IMPROVEMENTS.md](Documentation/SECURITY_IMPROVEMENTS.md) | Security enhancements & rate limiting |
+| [CI_CD.md](Documentation/CI_CD.md) | CI/CD implementation guide |
+| [IOT_INTEGRATION.md](Documentation/IOT_INTEGRATION.md) | IoT device integration |
+| [ESP32_SETUP_GUIDE.md](Documentation/ESP32_SETUP_GUIDE.md) | ESP32 hardware setup |
 | [RBAC.md](RBAC.md) | Role-based access control |
-| [QUICKSTART.md](QUICKSTART.md) | 5-minute quick start |
-| [USER_GUIDE.md](USER_GUIDE.md) | End-user documentation |
-| [SUPERUSER_GUIDE.md](SUPERUSER_GUIDE.md) | Admin user guide |
-| [MOBILE_APP_SUMMARY.md](MOBILE_APP_SUMMARY.md) | Mobile app overview |
+| [QUICKSTART.md](Documentation/QUICKSTART.md) | 5-minute quick start |
+| [USER_GUIDE.md](Documentation/USER_GUIDE.md) | End-user documentation |
+| [SUPERUSER_GUIDE.md](Documentation/SUPERUSER_GUIDE.md) | Admin user guide |
+| [MOBILE_APP_SUMMARY.md](Documentation/MOBILE_APP_SUMMARY.md) | Mobile app overview |
 | [Ashwini_Project_Report.md](Ashwini_Project_Report.md) | Complete project report |
 
 ---

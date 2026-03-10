@@ -36,8 +36,10 @@
 
 1. **Environment Variables** - Set these in your hosting platform:
    ```
-   # REQUIRED
-   SECRET_KEY=<generate-a-strong-secret-key-use-python-secrets-module>
+   # REQUIRED - Application will NOT start without this
+   SECRET_KEY=<your-generated-secret-key-from-command-below>
+   # Generate using: python -c "from django.core.management.utils import get_random_secret_key; print(get_random_secret_key())"
+   
    DEBUG=False
    ALLOWED_HOSTS=your-backend-domain.com
    DATABASE_URL=<provided-by-hosting-platform>
@@ -99,10 +101,11 @@
 
 ## 🔒 Security Considerations
 
-- ✅ SECRET_KEY not hardcoded
+- ✅ SECRET_KEY not hardcoded (REQUIRED - app won't start without it)
+- ✅ Rate limiting enabled (5 login attempts/minute, 3 registrations/hour)
 - ✅ DEBUG=False in production
 - ✅ ALLOWED_HOSTS restricted
-- ✅ CORS properly configured
+- ✅ CORS properly configured (allows all origins for Android app compatibility)
 - ✅ JWT authentication enabled
 - ✅ Role-based access control implemented
 - ✅ Sensitive files (.env, db.sqlite3) in .gitignore

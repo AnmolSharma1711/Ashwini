@@ -29,7 +29,13 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # See https://docs.djangoproject.com/en/4.2/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = os.environ.get('SECRET_KEY', 'django-insecure-ashwini-development-key-change-in-production')
+# SECRET_KEY is required - must be set in environment variables
+SECRET_KEY = os.environ.get('SECRET_KEY')
+if not SECRET_KEY:
+    raise ValueError(
+        "SECRET_KEY environment variable is required. "
+        "Set it in your .env file or environment."
+    )
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = os.environ.get('DEBUG', 'True') == 'True'
@@ -256,8 +262,10 @@ else:
     CORS_ALLOWED_ORIGINS = []
     print("WARNING: CORS_ALLOWED_ORIGINS not set in production! Set this environment variable.")
 
-# Allow all origins for mobile app compatibility
-# Mobile apps (Capacitor/React Native) don't send proper CORS headers
+# SECURITY NOTE: CORS_ALLOW_ALL_ORIGINS is set to True for Android mobile app compatibility
+# Mobile apps (Capacitor/React Native) require this setting as they don't send proper CORS headers
+# This is required for the frontend-patient-mobile Android application to connect to the backend
+# For web-only deployments, set CORS_ALLOW_ALL_ORIGINS=False and use CORS_ALLOWED_ORIGINS instead
 CORS_ALLOW_ALL_ORIGINS = True
 
 # Allow credentials for JWT authentication

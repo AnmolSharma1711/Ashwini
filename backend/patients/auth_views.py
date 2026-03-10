@@ -4,6 +4,8 @@ from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework_simplejwt.tokens import RefreshToken
 from django.contrib.auth import authenticate, get_user_model
+from django_ratelimit.decorators import ratelimit
+from django.views.decorators.cache import never_cache
 
 from .auth_serializers import (
     UserSerializer,
@@ -16,6 +18,8 @@ User = get_user_model()
 
 @api_view(['POST'])
 @permission_classes([AllowAny])
+@ratelimit(key='ip', rate='5/m', method='POST', block=True)
+@never_cache
 def login_view(request):
     """
     User login endpoint.
@@ -107,6 +111,8 @@ def login_view(request):
 
 @api_view(['POST'])
 @permission_classes([AllowAny])
+@ratelimit(key='ip', rate='3/h', method='POST', block=True)
+@never_cache
 def register_view(request):
     """
     User registration endpoint.
